@@ -1,0 +1,6 @@
+-r base.txt
+pytest>=8.0
+pytest-django>=4.8
+django-debug-toolbar>=4.3
+factory-boy>=3.3
+flake8>=7.0
