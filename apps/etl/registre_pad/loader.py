@@ -40,7 +40,8 @@ def _parser_decimal(valeur):
 def _duree_heures(debut, fin):
     if debut is None or fin is None:
         return None
-    return round((fin - debut).total_seconds() / 3600, 2)
+    heures = (fin - debut).total_seconds() / 3600
+    return round(heures, 2) if heures >= 0 else None
 
 
 class ReferentielCache:

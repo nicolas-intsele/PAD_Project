@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'apps.referentiel',
     'apps.escales',
     'apps.etl',
+    'apps.kpi',
 ]
 
 MIDDLEWARE = [

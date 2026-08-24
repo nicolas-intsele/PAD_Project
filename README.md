@@ -9,7 +9,7 @@ performances des opérations navires — mémoire de fin d'études.
 |-----------------------------------------------|----------------------|
 | 1. Collecte et intégration des données (ETL)  | ✅ Développé et testé (gabarit générique + registre PAD réel) |
 | 2. Entrepôt de données (Data Warehouse)        | ✅ Modèles Django créés |
-| 3. Calcul automatique des KPI                  | ⏳ À venir |
+| 3. Calcul automatique des KPI                  | ✅ KPI de base implémentés |
 | 4. Analyse multidimensionnelle                 | ⏳ À venir |
 | 5. Tableaux de bord décisionnels               | ⏳ À venir |
 | 6. Alertes et aide à la décision               | ⏳ À venir |

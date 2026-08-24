@@ -1,6 +1,9 @@
 """
 Table de faits ESCALE et table de jonction MOBILISER.
 Correspond à l'association porteuse ESCALE du MCD (voir docs/MCD_MLD_MPD_PAD.docx).
+
+Alignée explicitement sur docs/schema_pad.sql (Meta.db_table + db_column)
+pour écrire directement dans les tables "escale" / "mobiliser" existantes.
 """
 from django.db import models
 
@@ -14,10 +17,11 @@ class Escale(models.Model):
         TERMINEE = "terminee", "Terminée"
         ANNULEE = "annulee", "Annulée"
 
-    navire = models.ForeignKey(Navire, on_delete=models.PROTECT, related_name="escales")
-    quai = models.ForeignKey(Quai, on_delete=models.PROTECT, related_name="escales")
-    agent = models.ForeignKey(AgentMaritime, on_delete=models.PROTECT, related_name="escales")
-    date_ref = models.ForeignKey(Calendrier, on_delete=models.PROTECT, related_name="escales")
+    id_escale = models.AutoField(primary_key=True)
+    navire = models.ForeignKey(Navire, on_delete=models.PROTECT, related_name="escales", db_column="id_navire")
+    quai = models.ForeignKey(Quai, on_delete=models.PROTECT, related_name="escales", db_column="id_quai")
+    agent = models.ForeignKey(AgentMaritime, on_delete=models.PROTECT, related_name="escales", db_column="id_agent")
+    date_ref = models.ForeignKey(Calendrier, on_delete=models.PROTECT, related_name="escales", db_column="id_date")
 
     date_arrivee = models.DateTimeField()
     date_accostage = models.DateTimeField(null=True, blank=True)
@@ -29,14 +33,24 @@ class Escale(models.Model):
     temps_pilotage = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     temps_accostage = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
+    # Tonnages manutentionnés (alimente le KPI de productivité — Module 3).
+    # Colonnes absentes de docs/schema_pad.sql (ajoutées après coup, comme
+    # import_source) : voir docs/ALTER_schema_django.sql.
+    tonnage_debarque = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tonnage_embarque = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.PLANIFIEE)
 
-    # Traçabilité de la source d'import (utile pour l'historisation ETL)
+    # Traçabilité de la source d'import. Colonne absente de docs/schema_pad.sql
+    # (ajoutée après coup pour l'ETL) : voir docs/ALTER_schema_django.sql pour
+    # l'instruction ALTER TABLE à exécuter une seule fois sur une base créée
+    # directement à partir de schema_pad.sql.
     import_source = models.ForeignKey(
         "etl.JournalImport", on_delete=models.SET_NULL, null=True, blank=True, related_name="escales"
     )
 
     class Meta:
+        db_table = "escale"
         verbose_name = "Escale"
         indexes = [
             models.Index(fields=["navire"]),
@@ -72,14 +86,24 @@ class Escale(models.Model):
 
 
 class Mobiliser(models.Model):
-    """Table de jonction n,n entre ESCALE et SERVICE_NAUTIQUE."""
+    """
+    Table de jonction n,n entre ESCALE et SERVICE_NAUTIQUE.
 
-    escale = models.ForeignKey(Escale, on_delete=models.CASCADE, related_name="services_mobilises")
-    service = models.ForeignKey(ServiceNautique, on_delete=models.PROTECT, related_name="mobilisations")
+    Non encore alimentée par le pipeline ETL actuel (le journal des
+    mouvements/services mobilisés sera traité avec le module Alertes/KPI).
+    NOTE : docs/schema_pad.sql définit une clé primaire composite
+    (id_escale, id_service) sans colonne id séparée ; ce modèle conserve un
+    id technique Django pour rester compatible avec l'ORM standard — voir
+    docs/ALTER_schema_django.sql si vous souhaitez l'aligner strictement.
+    """
+
+    escale = models.ForeignKey(Escale, on_delete=models.CASCADE, related_name="services_mobilises", db_column="id_escale")
+    service = models.ForeignKey(ServiceNautique, on_delete=models.PROTECT, related_name="mobilisations", db_column="id_service")
     duree_reelle = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     ordre_intervention = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
+        db_table = "mobiliser"
         verbose_name = "Mobilisation de service nautique"
         verbose_name_plural = "Mobilisations de services nautiques"
         constraints = [
