@@ -16,7 +16,7 @@ from apps.referentiel.models import (
     Calendrier,
     CompagnieMaritime,
     Navire,
-    Quai,
+    Poste,
     Terminal,
     TypeNavire,
 )
@@ -106,7 +106,7 @@ class EscaleLoader:
 
     def _charger_ligne(self, row) -> Escale:
         terminal, _ = Terminal.objects.get_or_create(nom=row["terminal"])
-        quai, _ = Quai.objects.get_or_create(nom=row["quai"], terminal=terminal)
+        poste, _ = Poste.objects.get_or_create(nom=row["poste"], terminal=terminal)
 
         type_navire, _ = TypeNavire.objects.get_or_create(libelle=row.get("type_navire") or "Non renseigné")
         compagnie, _ = CompagnieMaritime.objects.get_or_create(raison_sociale=row["compagnie"])
@@ -119,7 +119,7 @@ class EscaleLoader:
 
         escale, _ = Escale.objects.update_or_create(
             navire=navire,
-            quai=quai,
+            poste=poste,
             date_arrivee=date_arrivee,
             defaults={
                 "agent": agent,

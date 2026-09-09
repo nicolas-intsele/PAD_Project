@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Quai, ServiceNautique, Terminal, TypeNavire
+from .models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Poste, ServiceNautique, Terminal, TypeNavire
 
 admin.site.register(TypeNavire)
 admin.site.register(CompagnieMaritime)
@@ -10,9 +10,9 @@ admin.site.register(ServiceNautique)
 admin.site.register(Calendrier)
 
 
-@admin.register(Quai)
-class QuaiAdmin(admin.ModelAdmin):
-    list_display = ("nom", "terminal", "longueur", "tirant_eau_max")
+@admin.register(Poste)
+class PosteAdmin(admin.ModelAdmin):
+    list_display = ("nom", "terminal")
     list_filter = ("terminal",)
 
 

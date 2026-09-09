@@ -1,0 +1,125 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if user_obj %}Modifier{% else %}Créer{% endif %} utilisateur — PAD{% endblock %}
+{% block page_icon %}<i class="bi bi-person-gear"></i>{% endblock %}
+{% block page_title %}{% if user_obj %}Modifier l'utilisateur {{ user_obj.username }}{% else %}Nouvel utilisateur{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="chart-card fade-in">
+      <div class="chart-header mb-3">
+        <div class="chart-title">
+          <i class="bi bi-person-badge me-2" style="color:var(--pad-blue-light)"></i>
+          Informations du compte
+        </div>
+        <a href="{% url 'dashboard:admin_utilisateurs' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">
+          <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+      </div>
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" style="border-radius:8px;font-size:.875rem;">
+            {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Prénom</label>
+            <input type="text" name="first_name" class="form-control" style="border-radius:8px;"
+                   value="{{ user_obj.first_name|default:'' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Nom</label>
+            <input type="text" name="last_name" class="form-control" style="border-radius:8px;"
+                   value="{{ user_obj.last_name|default:'' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Identifiant <span class="text-danger">*</span></label>
+            <input type="text" name="username" class="form-control" style="border-radius:8px;" required
+                   value="{{ user_obj.username|default:'' }}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Email</label>
+            <input type="email" name="email" class="form-control" style="border-radius:8px;"
+                   value="{{ user_obj.email|default:'' }}">
+          </div>
+          {% if not user_obj %}
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Mot de passe <span class="text-danger">*</span></label>
+            <input type="password" name="password1" class="form-control" style="border-radius:8px;" required minlength="8">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Confirmer le mot de passe <span class="text-danger">*</span></label>
+            <input type="password" name="password2" class="form-control" style="border-radius:8px;" required minlength="8">
+          </div>
+          {% else %}
+          <div class="col-12">
+            <details>
+              <summary style="cursor:pointer;font-size:.85rem;font-weight:600;color:var(--pad-muted);">
+                <i class="bi bi-lock me-1"></i>Changer le mot de passe (facultatif)
+              </summary>
+              <div class="row g-3 mt-1">
+                <div class="col-sm-6">
+                  <input type="password" name="password1" class="form-control" style="border-radius:8px;"
+                         placeholder="Nouveau mot de passe" minlength="8">
+                </div>
+                <div class="col-sm-6">
+                  <input type="password" name="password2" class="form-control" style="border-radius:8px;"
+                         placeholder="Confirmer" minlength="8">
+                </div>
+              </div>
+            </details>
+          </div>
+          {% endif %}
+
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Rôle</label>
+            <select name="role" class="form-select" style="border-radius:8px;">
+              <option value="">— Sans rôle —</option>
+              {% for r in roles %}
+                <option value="{{ r.pk }}"
+                  {% if user_obj and user_obj.profil.role.pk == r.pk %}selected{% endif %}>
+                  {{ r.libelle }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Poste / Fonction</label>
+            <input type="text" name="poste" class="form-control" style="border-radius:8px;"
+                   value="{% if user_obj %}{{ user_obj.profil.poste }}{% endif %}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold" style="font-size:.85rem;">Téléphone</label>
+            <input type="text" name="telephone" class="form-control" style="border-radius:8px;"
+                   value="{% if user_obj %}{{ user_obj.profil.telephone }}{% endif %}">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-bold d-block" style="font-size:.85rem;">Statut</label>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" name="actif" id="chkActif"
+                     {% if not user_obj or user_obj.is_active %}checked{% endif %}>
+              <label class="form-check-label" for="chkActif">Compte actif</label>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4" style="border-color:#e9ecef;">
+        <div class="d-flex justify-content-end gap-2">
+          <a href="{% url 'dashboard:admin_utilisateurs' %}" class="btn btn-outline-secondary" style="border-radius:8px;">
+            Annuler
+          </a>
+          <button type="submit" class="btn btn-primary" style="background:var(--pad-blue);border:none;border-radius:8px;padding:.5rem 1.5rem;font-weight:600;">
+            <i class="bi bi-check2 me-1"></i>{% if user_obj %}Enregistrer{% else %}Créer{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

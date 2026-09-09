@@ -18,7 +18,11 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/etl/', include('apps.etl.urls')),
-    path('api/kpi', include('apps.kpi.urls')),
+    # ── Dashboard (Module 5) — point d'entrée racine ──
+    path('',          include('apps.dashboard.urls')),
+    # ── API REST ──────────────────────────────────────
+    path('admin/',        admin.site.urls),
+    path('api/etl/',      include('apps.etl.urls')),
+    path('api/kpi/',      include('apps.kpi.urls')),
+    path('api/analytics/', include('apps.analytics.urls')),
 ]

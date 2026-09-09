@@ -3,7 +3,7 @@ Chargement des escales du registre mensuel réel du PAD dans l'entrepôt de donn
 
 Contrairement au chargeur générique (apps.etl.loader.EscaleLoader), celui-ci
 résout le navire en priorité via le référentiel DONNEES DES NAVIRES (100% de
-correspondance constatée sur le fichier fourni), et le quai/terminal via la
+correspondance constatée sur le fichier fourni), et le poste/terminal via la
 table de correspondance POSTE -> SPECIALITE de l'onglet AUTRES DONNEES.
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.escales.models import Escale
-from apps.referentiel.models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Quai, Terminal, TypeNavire
+from apps.referentiel.models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Poste, Terminal, TypeNavire
 
 from .dateutils import parser_date_intelligent
 
@@ -45,37 +45,37 @@ def _duree_heures(debut, fin):
 
 
 class ReferentielCache:
-    """Précharge les référentiels Navire/Quai/Terminal pour éviter le N+1 sur un import volumineux."""
+    """Précharge les référentiels Navire/Poste/Terminal pour éviter le N+1 sur un import volumineux."""
 
     def __init__(self, df_navires_ref: pd.DataFrame, df_quais_ref: pd.DataFrame):
         self._navires_ref = {
             str(row["navire"]).strip().upper(): row for _, row in df_navires_ref.iterrows()
         }
-        self._quais_ref = {
+        self._postes_ref = {
             str(row["poste"]).strip().upper(): str(row["specialite"]).strip() for _, row in df_quais_ref.iterrows()
         }
         self._terminaux_cache = {}
-        self._quais_cache = {}
+        self._postes_cache = {}
         self._navires_cache = {}
         self._compagnies_cache = {}
         self._types_navire_cache = {}
         self._agents_cache = {}
 
-    def resoudre_quai(self, code_poste: str) -> Quai:
+    def resoudre_poste(self, code_poste: str) -> Poste:
         code = str(code_poste).strip().upper()
-        if code in self._quais_cache:
-            return self._quais_cache[code]
+        if code in self._postes_cache:
+            return self._postes_cache[code]
 
-        nom_terminal = self._quais_ref.get(code, "Non spécifié")
+        nom_terminal = self._postes_ref.get(code, "Non spécifié")
         if nom_terminal not in self._terminaux_cache:
             self._terminaux_cache[nom_terminal], _ = Terminal.objects.get_or_create(
                 nom=nom_terminal, defaults={"specialite": nom_terminal}
             )
         terminal = self._terminaux_cache[nom_terminal]
 
-        quai, _ = Quai.objects.get_or_create(nom=code, terminal=terminal)
-        self._quais_cache[code] = quai
-        return quai
+        poste, _ = Poste.objects.get_or_create(nom=code, terminal=terminal)
+        self._postes_cache[code] = poste
+        return poste
 
     def resoudre_navire(self, nom_navire: str, ligne_escale: dict) -> Navire:
         cle = str(nom_navire).strip().upper()
@@ -151,56 +151,78 @@ class RegistrePADLoader:
         return nb_chargees, erreurs
 
     def _charger_ligne(self, row) -> Escale:
-        quai = self.cache.resoudre_quai(row["poste"])
+        poste = self.cache.resoudre_poste(row["poste"])
         navire = self.cache.resoudre_navire(row["navire"], row)
         agent = self.cache.resoudre_agent(row.get("consignataire"))
 
-        arrivee_rade = _parser_date(row.get("arrivee_rade"))
-        arrivee_poste = _parser_date(row.get("arrivee_poste"))
-        pilote_a_bord_arrivee = _parser_date(row.get("pilote_a_bord_arrivee"))
-        pilote_a_bord_depart = _parser_date(row.get("pilote_a_bord_depart"))
-        navire_appareille = _parser_date(row.get("navire_appareille"))
-        pilote_debarque_depart = _parser_date(row.get("pilote_debarque_depart"))
+        # ── Lecture des dates brutes depuis les colonnes du registre PAD ──────
+        arrivee_rade          = _parser_date(row.get("arrivee_rade"))           # ARRIVEE RADE
+        pilote_a_bord_arrivee = _parser_date(row.get("pilote_a_bord_arrivee"))  # PILOTE A BORD ARRIVEE
+        arrivee_poste         = _parser_date(row.get("arrivee_poste"))          # NAVIRE ARRIVEE POSTE
+        pilote_debarque_arr   = _parser_date(row.get("pilote_debarque_arrivee"))# PILOTE DEBARQUE ARRIVEE
+        navire_appareille     = _parser_date(row.get("navire_appareille"))      # NAVIRE APPAREILLE
+
+        if arrivee_rade is None:
+            raise ValueError("arrivee_rade manquant — ligne invalide")
 
         date_ref = Calendrier.get_or_create_from_date(arrivee_rade.date())
 
-        # Départ effectif du port : dernier événement disponible dans la séquence
-        # (débarquement du pilote au départ), à défaut l'appareillage du navire.
-        date_depart = pilote_debarque_depart or navire_appareille
+        # ── Mapping vers les champs Escale ────────────────────────────────────
+        # date_arrivee    = arrivee_rade          (arrivée en rade)
+        # date_accostage  = pilote_a_bord_arrivee (pilote monte à bord → début attente)
+        # date_depart     = arrivee_poste         (navire à poste → début séjour)
+        # date_appareillage = navire_appareille   (navire appareille → fin séjour)
 
-        # Temps de pilotage = somme des fenêtres pilote-à-bord à l'arrivée et au départ.
-        temps_pilotage = None
-        parts = []
-        if pilote_a_bord_arrivee and arrivee_poste:
-            parts.append(_duree_heures(pilote_a_bord_arrivee, arrivee_poste))
-        if pilote_a_bord_depart and pilote_debarque_depart:
-            parts.append(_duree_heures(pilote_a_bord_depart, pilote_debarque_depart))
-        parts = [p for p in parts if p is not None]
-        if parts:
-            temps_pilotage = round(sum(parts), 2)
+        # ── Calculs des temps caractéristiques ───────────────────────────────
+        # TEMPS_ATTENTE   = pilote_a_bord_arrivee - arrivee_rade
+        temps_attente = _duree_heures(arrivee_rade, pilote_a_bord_arrivee)
 
-        # Temps d'accostage = durée de la seule manœuvre d'entrée (pilote à bord -> à quai).
-        temps_accostage = _duree_heures(pilote_a_bord_arrivee, arrivee_poste)
+        # TEMPS_SEJOUR    = navire_appareille - arrivee_poste
+        temps_sejour = _duree_heures(arrivee_poste, navire_appareille)
 
-        statut = Escale.Statut.TERMINEE if date_depart else (
+        # TEMPS_PILOTAGE  = arrivee_poste - pilote_a_bord_arrivee
+        temps_pilotage = _duree_heures(pilote_a_bord_arrivee, arrivee_poste)
+
+        # TEMPS_ACCOSTAGE = pilote_debarque_arrivee - arrivee_poste
+        temps_accostage = _duree_heures(arrivee_poste, pilote_debarque_arr)
+
+        statut = Escale.Statut.TERMINEE if navire_appareille else (
             Escale.Statut.EN_COURS if arrivee_poste else Escale.Statut.PLANIFIEE
         )
 
+        # mois_source : "AAAA-MM" converti depuis le nom de l'onglet ("JANVIER 2026" → "2026-01")
+        MOIS_FR = {
+            "JANVIER":1, "FEVRIER":2, "MARS":3, "AVRIL":4, "MAI":5, "JUIN":6,
+            "JUILLET":7, "AOUT":7, "SEPTEMBRE":9, "OCTOBRE":10, "NOVEMBRE":11, "DECEMBRE":12
+        }
+        mois_str = str(row.get("mois_source", "") or "").strip().upper()
+        mois_source_key = None
+        if mois_str:
+            parties = mois_str.split()
+            if len(parties) == 2:
+                nom_mois, annee_str = parties[0], parties[1]
+                mois_num = MOIS_FR.get(nom_mois)
+                if mois_num and annee_str.isdigit():
+                    mois_source_key = f"{annee_str}-{mois_num:02d}"
+
         escale, _ = Escale.objects.update_or_create(
-            navire=navire, quai=quai, date_arrivee=arrivee_rade,
+            navire=navire, poste=poste, date_arrivee=arrivee_rade,
+            mois_source=mois_source_key,
             defaults={
                 "agent": agent,
                 "date_ref": date_ref,
-                "date_accostage": arrivee_poste,
+                "date_accostage":    pilote_a_bord_arrivee,
+                "date_depart":       arrivee_poste,
                 "date_appareillage": navire_appareille,
-                "date_depart": date_depart,
-                "temps_pilotage": temps_pilotage,
-                "temps_accostage": temps_accostage,
+                "temps_attente":     temps_attente,
+                "temps_sejour":      temps_sejour,
+                "temps_pilotage":    temps_pilotage,
+                "temps_accostage":   temps_accostage,
+                "tonnage_debarque":  _parser_decimal(row.get("tonnage_debarque")),
+                "tonnage_embarque":  _parser_decimal(row.get("tonnage_embarque")),
+                "mois_source":       mois_source_key,
                 "statut": statut,
                 "import_source": self.journal_import,
             },
         )
-        escale.temps_attente = escale.calculer_temps_attente()
-        escale.temps_sejour = escale.calculer_duree_sejour()
-        escale.save(update_fields=["temps_attente", "temps_sejour"])
         return escale

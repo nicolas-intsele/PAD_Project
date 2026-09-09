@@ -1,0 +1,194 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Centre d'alertes — PAD Décisionnel{% endblock %}
+{% block page_icon %}<i class="bi bi-bell-fill"></i>{% endblock %}
+{% block page_title %}Centre d'alertes & Aide à la décision{% endblock %}
+
+{% block content %}
+<!-- Barre d'actions + filtres -->
+<form method="get" class="filter-bar">
+  <div>
+    <label>Gravité</label>
+    <select name="gravite" class="form-select" style="min-width:160px;">
+      <option value="">Toutes gravités</option>
+      <option value="critique"      {% if gravite == 'critique' %}selected{% endif %}>🔴 Critique</option>
+      <option value="avertissement" {% if gravite == 'avertissement' %}selected{% endif %}>🟡 Avertissement</option>
+      <option value="info"          {% if gravite == 'info' %}selected{% endif %}>🔵 Information</option>
+    </select>
+  </div>
+  <div>
+    <label>Type</label>
+    <select name="type_alerte" class="form-select" style="min-width:180px;">
+      <option value="">Tous les types</option>
+      <option value="kpi_seuil"      {% if type_alerte == 'kpi_seuil' %}selected{% endif %}>KPI hors seuil</option>
+      <option value="congestion"     {% if type_alerte == 'congestion' %}selected{% endif %}>Congestion</option>
+      <option value="retard"         {% if type_alerte == 'retard' %}selected{% endif %}>Retard escale</option>
+      <option value="occupation"     {% if type_alerte == 'occupation' %}selected{% endif %}>Occupation élevée</option>
+      <option value="attente_longue" {% if type_alerte == 'attente_longue' %}selected{% endif %}>Attente excessive</option>
+    </select>
+  </div>
+  <div>
+    <label>Statut</label>
+    <select name="statut" class="form-select" style="min-width:140px;">
+      <option value="active"    {% if statut == 'active' %}selected{% endif %}>Actives</option>
+      <option value="acquittee" {% if statut == 'acquittee' %}selected{% endif %}>Acquittées</option>
+      <option value="resolue"   {% if statut == 'resolue' %}selected{% endif %}>Résolues</option>
+      <option value=""          {% if not statut %}selected{% endif %}>Toutes</option>
+    </select>
+  </div>
+  <div class="mt-auto d-flex gap-2">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+    <a href="{% url 'dashboard:alertes_scanner' %}" class="btn btn-sm"
+       style="background:var(--pad-teal);color:#fff;border-radius:8px;padding:.45rem 1rem;font-weight:600;">
+      <i class="bi bi-radar me-1"></i>Lancer scan
+    </a>
+  </div>
+</form>
+
+<!-- Compteurs rapides -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3 fade-in fade-in-1">
+    <div class="kpi-card kpi-alert">
+      <div class="kpi-icon"><i class="bi bi-exclamation-octagon-fill"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Critiques actives</div>
+        <div class="kpi-value">{{ stats.critiques }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-2">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Avertissements</div>
+        <div class="kpi-value">{{ stats.avertissements }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-3">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-info-circle-fill"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Informations</div>
+        <div class="kpi-value">{{ stats.infos }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-4">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-icon"><i class="bi bi-check2-all"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Résolues (7 jours)</div>
+        <div class="kpi-value">{{ stats.resolues_7j }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Liste des alertes -->
+<div class="chart-card fade-in">
+  <div class="chart-header mb-3">
+    <div class="chart-title">
+      <i class="bi bi-list-ul me-2" style="color:var(--pad-blue-light)"></i>
+      Alertes — <span class="text-muted fw-normal" style="font-size:.85rem;">{{ alertes.count }} résultat(s)</span>
+    </div>
+    {% if alertes_actives_count > 0 %}
+    <form method="post" action="{% url 'dashboard:alertes_acquitter_tout' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-warning" style="border-radius:8px;">
+        <i class="bi bi-check2-all me-1"></i>Tout acquitter
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if alertes %}
+  <div class="d-flex flex-column gap-2">
+    {% for alerte in alertes %}
+    <div class="alert-item d-flex align-items-start gap-3 p-3 rounded-3 border
+        {% if alerte.niveau_gravite == 'critique' %}border-danger bg-danger bg-opacity-10
+        {% elif alerte.niveau_gravite == 'avertissement' %}border-warning bg-warning bg-opacity-10
+        {% else %}border-primary bg-primary bg-opacity-10{% endif %}"
+        style="transition:all .2s;">
+
+      <!-- Icône gravité -->
+      <div class="flex-shrink-0 mt-1">
+        <i class="bi {{ alerte.icone }} fs-4
+          {% if alerte.niveau_gravite == 'critique' %}text-danger
+          {% elif alerte.niveau_gravite == 'avertissement' %}text-warning
+          {% else %}text-primary{% endif %}"></i>
+      </div>
+
+      <!-- Corps -->
+      <div class="flex-grow-1 min-width-0">
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+          <span class="badge bg-{{ alerte.couleur_css }} bg-opacity-75" style="font-size:.7rem;">
+            {{ alerte.get_niveau_gravite_display }}
+          </span>
+          <span class="badge bg-secondary bg-opacity-25 text-dark" style="font-size:.7rem;">
+            {{ alerte.get_type_alerte_display }}
+          </span>
+          <span class="badge {% if alerte.statut == 'active' %}bg-danger{% elif alerte.statut == 'acquittee' %}bg-warning text-dark{% else %}bg-success{% endif %} bg-opacity-75" style="font-size:.7rem;">
+            {{ alerte.get_statut_display }}
+          </span>
+          <small class="text-muted ms-auto">{{ alerte.date_declenchement|date:"d/m/Y H:i" }}</small>
+        </div>
+        <p class="mb-1" style="font-size:.875rem;">{{ alerte.message }}</p>
+        {% if alerte.valeur_declenchante %}
+          <small class="text-muted"><i class="bi bi-activity me-1"></i>Valeur : <strong>{{ alerte.valeur_declenchante|floatformat:2 }}</strong></small>
+        {% endif %}
+        {% if alerte.escale %}
+          <small class="text-muted ms-3"><i class="bi bi-anchor me-1"></i>Escale #{{ alerte.escale.pk }} — {{ alerte.escale.navire.nom }}</small>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      {% if alerte.statut == 'active' %}
+      <div class="flex-shrink-0 d-flex gap-1">
+        <form method="post" action="{% url 'dashboard:alerte_acquitter' alerte.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-secondary" title="Acquitter" style="border-radius:6px;">
+            <i class="bi bi-check2"></i>
+          </button>
+        </form>
+        <form method="post" action="{% url 'dashboard:alerte_resoudre' alerte.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-success" title="Résoudre" style="border-radius:6px;">
+            <i class="bi bi-check2-circle"></i>
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if alertes.has_other_pages %}
+  <nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm">
+      {% if alertes.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ alertes.previous_page_number }}&gravite={{ gravite }}&type_alerte={{ type_alerte }}&statut={{ statut }}">‹</a></li>
+      {% endif %}
+      {% for num in alertes.paginator.page_range %}
+        <li class="page-item {% if alertes.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}&gravite={{ gravite }}&type_alerte={{ type_alerte }}&statut={{ statut }}">{{ num }}</a>
+        </li>
+      {% endfor %}
+      {% if alertes.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ alertes.next_page_number }}&gravite={{ gravite }}&type_alerte={{ type_alerte }}&statut={{ statut }}">›</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-bell-slash fs-1 d-block mb-3 opacity-25"></i>
+    <p class="mb-1">Aucune alerte pour les filtres sélectionnés.</p>
+    <a href="{% url 'dashboard:alertes_scanner' %}" class="btn btn-sm btn-outline-primary mt-2">
+      <i class="bi bi-radar me-1"></i>Lancer un scan
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

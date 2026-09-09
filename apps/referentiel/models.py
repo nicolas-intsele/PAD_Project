@@ -94,14 +94,15 @@ class Calendrier(models.Model):
         return obj
 
 
-class Quai(models.Model):
+class Poste(models.Model):
     nom = models.CharField(max_length=80)
-    longueur = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    longueur = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     tirant_eau_max = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    terminal = models.ForeignKey(Terminal, on_delete=models.PROTECT, related_name="quais")
+    terminal = models.ForeignKey(Terminal, on_delete=models.PROTECT, related_name="postes")
 
     class Meta:
-        verbose_name = "Quai"
+        db_table = "poste"
+        verbose_name = "Poste"
 
     def __str__(self):
         return self.nom
@@ -111,7 +112,7 @@ class Navire(models.Model):
     nom = models.CharField(max_length=150)
     imo = models.CharField("Numéro IMO", max_length=20, unique=True, null=True, blank=True)
     pavillon = models.CharField(max_length=60, blank=True)
-    longueur = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    longueur = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     jauge_brute = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     type_navire = models.ForeignKey(TypeNavire, on_delete=models.PROTECT, related_name="navires")
     compagnie = models.ForeignKey(CompagnieMaritime, on_delete=models.PROTECT, related_name="navires")

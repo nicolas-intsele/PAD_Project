@@ -15,7 +15,7 @@ COLONNES_REQUISES = [
     "type_navire",
     "compagnie",
     "agent_maritime",
-    "quai",
+    "poste",
     "terminal",
     "date_arrivee",
 ]
@@ -129,7 +129,7 @@ class DataQualityController:
                     ))
 
     def _controler_doublons(self, report: QualityReport):
-        cle = ["navire_nom", "quai", "date_arrivee"]
+        cle = ["navire_nom", "poste", "date_arrivee"]
         cle_presente = [c for c in cle if c in self.df.columns]
         if len(cle_presente) < len(cle):
             return
@@ -138,7 +138,7 @@ class DataQualityController:
             report.add(QualityIssue(
                 ligne=idx + 2,
                 champ="+".join(cle_presente),
-                message="Doublon détecté (même navire, quai et date d'arrivée)",
+                message="Doublon détecté (même navire, poste et date d'arrivée)",
                 bloquant=False,  # avertissement : traité comme mise à jour, non rejeté
             ))
 

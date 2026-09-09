@@ -1,11 +1,11 @@
 """
-Orchestration du calcul des KPI : garantit le catalogue, calcule chaque
-indicateur pour une période mensuelle, et historise le résultat dans
-ValeurKPI (une ligne par couple KPI x mois, datée au 1er jour du mois).
+Orchestration du calcul des KPI.
+
+Les calculateurs reçoivent maintenant (annee, mois) et filtrent par
+mois_source plutôt que par date_arrivee (Option B PAD).
 """
 from __future__ import annotations
 
-import calendar
 import logging
 from datetime import date
 
@@ -19,34 +19,38 @@ logger = logging.getLogger(__name__)
 
 
 def garantir_catalogue() -> None:
-    """Crée ou met à jour les 13 KPI définis dans le cahier des charges (idempotent)."""
+    """Crée ou met à jour les KPI définis dans le catalogue (idempotent)."""
     for entree in CATALOGUE_KPI:
         KPI.objects.update_or_create(
             code=entree["code"],
             defaults={
-                "libelle": entree["libelle"],
+                "libelle":   entree["libelle"],
                 "categorie": entree["categorie"],
-                "unite": entree["unite"],
-                "formule": entree["formule"],
+                "unite":     entree["unite"],
+                "formule":   entree["formule"],
             },
         )
 
 
 def calculer_kpi_mois(annee: int, mois: int) -> dict:
     """
-    Calcule et historise les 13 KPI pour le mois donné.
-    Retourne un dict {code_kpi: valeur} pour inspection/affichage.
+    Calcule et historise les 11 KPI actifs pour le mois donné.
+    Les calculateurs filtrent par mois_source="{annee}-{mois:02d}".
+    Retourne un dict {code_kpi: valeur} pour affichage.
     """
     garantir_catalogue()
 
     date_debut = date(annee, mois, 1)
-    dernier_jour = calendar.monthrange(annee, mois)[1]
-    date_fin = date(annee, mois, dernier_jour)
     date_ref = Calendrier.get_or_create_from_date(date_debut)
 
     resultats = {}
     for code, fonction in CALCULATEURS.items():
-        valeur = fonction(date_debut, date_fin)
+        try:
+            valeur = fonction(annee, mois)
+        except Exception as exc:
+            logger.warning("KPI %s erreur : %s", code, exc)
+            valeur = None
+
         if valeur is not None:
             kpi = KPI.objects.get(code=code)
             ValeurKPI.objects.update_or_create(
@@ -59,13 +63,19 @@ def calculer_kpi_mois(annee: int, mois: int) -> dict:
 
 
 def mois_disponibles() -> list[tuple[int, int]]:
-    """Liste les couples (année, mois) distincts présents dans la table ESCALE."""
+    """Liste les couples (année, mois) distincts présents via mois_source."""
     from apps.escales.models import Escale
-
-    dates = (
-        Escale.objects.dates("date_arrivee", "month")
-    )
-    return sorted({(d.year, d.month) for d in dates})
+    cles = Escale.objects.exclude(
+        mois_source__isnull=True
+    ).values_list("mois_source", flat=True).distinct()
+    result = set()
+    for cle in cles:
+        try:
+            annee, mois = int(cle[:4]), int(cle[5:7])
+            result.add((annee, mois))
+        except (ValueError, TypeError, IndexError):
+            pass
+    return sorted(result)
 
 
 def calculer_toutes_les_periodes() -> dict:

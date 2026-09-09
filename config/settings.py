@@ -18,6 +18,17 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "apps"))  # permet `from apps.xxx import ...`
 
+# Chargement automatique du fichier .env à la racine du projet (M3 — audit Phase 7).
+# En développement local (hors Docker), ce fichier est la seule façon de passer
+# POSTGRES_DB, SECRET_KEY, etc. à Django sans les exporter manuellement dans le shell.
+# En production Docker, docker-compose fournit déjà les variables via `env_file` — ce
+# chargement est donc inoffensif (les variables d'environnement déjà présentes ont priorité).
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / ".env", override=False)  # override=False : les vars d'env système ont priorité
+except ImportError:
+    pass  # python-dotenv non installé : comportement inchangé (variables système seulement)
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -45,17 +56,30 @@ INSTALLED_APPS = [
 
     # Tiers
     'rest_framework',
+    'rest_framework.authtoken',
 
     # Applications métier de la plateforme décisionnelle PAD
     'apps.referentiel',
     'apps.escales',
     'apps.etl',
     'apps.kpi',
+    'apps.analytics',
+    'apps.dashboard',
+    'apps.alerts',
+    'apps.reporting',
+    'apps.users',
+
+    # CORS (accès depuis les dashboards front-end)
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise : sert les fichiers statiques directement en production, sans nginx dédié
+    # Doit être juste après SecurityMiddleware (M8 — audit Phase 7)
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -68,13 +92,14 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.dashboard.context_processors.alertes_badge',
             ],
         },
     },
@@ -146,6 +171,18 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# WhiteNoise : compression + fingerprinting des fichiers statiques en production (M8 — audit Phase 7)
+# CompressedManifestStaticFilesStorage ajoute un hash au nom de fichier (cache-busting)
+# et compresse automatiquement (gzip/brotli) sans dépendre d'un nginx séparé.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'  # media/imports, media/exports
 
@@ -172,5 +209,15 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+LOGIN_URL = "dashboard:login"
+LOGIN_REDIRECT_URL = "dashboard:direction"
+LOGOUT_REDIRECT_URL = "dashboard:login"
+
 # Taille maximale acceptée pour les imports CSV/Excel (Module 1)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20 Mo
+
+# CORS (Module 4/5 — dashboards front-end en développement)
+CORS_ALLOW_ALL_ORIGINS = DEBUG   # autorise toutes les origines en dev, restreindre en prod
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+).split(",")

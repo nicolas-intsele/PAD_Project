@@ -15,13 +15,15 @@ from django.test import TestCase
 
 from apps.escales.models import Escale
 from apps.etl.models import JournalImport
-from apps.etl.registre_pad.extractor import extraire_escales, extraire_navires_reference, extraire_quais_reference
+from apps.etl.registre_pad.extractor import extraire_escales, extraire_navires_reference, extraire_postes_reference
 from apps.etl.registre_pad.service import run_import_registre_pad
 from apps.etl.registre_pad.validators import RegistrePADQualityController
-from apps.referentiel.models import Navire, Quai, Terminal
+from apps.referentiel.models import Navire, Poste, Terminal
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "samples"
-REGISTRE_REEL = SAMPLES_DIR / "COLLECTE_DE_DONNEES_NAVIRES_2026_26062026.xlsx"
+REAL_DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "real"
+# Le fichier réel est dans data/real/ (MO1 — audit Phase 7 : chemin corrigé)
+REGISTRE_REEL = REAL_DATA_DIR / "COLLECTE_DE_DONNEES_NAVIRES_2026_26062026.xlsx"
 
 pas_de_fichier_reel = unittest.skipUnless(
     REGISTRE_REEL.exists(), "Registre PAD réel non fourni dans cet environnement"
@@ -47,7 +49,7 @@ class ExtractionTestCase(TestCase):
         self.assertIn("imo", df.columns)
 
     def test_extraction_quais_reference(self):
-        df = extraire_quais_reference(str(REGISTRE_REEL))
+        df = extraire_postes_reference(str(REGISTRE_REEL))
         self.assertGreater(len(df), 0)
         self.assertIn("P1", set(df["poste"].str.strip()))
 
@@ -85,7 +87,7 @@ class RunImportRegistrePADIntegrationTestCase(TestCase):
         self.assertLessEqual(Escale.objects.count(), journal.nb_lignes_chargees)
         self.assertGreater(Escale.objects.count(), 0)
         self.assertGreater(Navire.objects.count(), 0)
-        self.assertGreater(Quai.objects.count(), 0)
+        self.assertGreater(Poste.objects.count(), 0)
         self.assertGreater(Terminal.objects.count(), 0)
 
     def test_import_idempotent(self):

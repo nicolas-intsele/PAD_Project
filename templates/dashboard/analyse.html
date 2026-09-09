@@ -1,0 +1,192 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Analyse OLAP{% endblock %}
+{% block page_icon %}<i class="bi bi-bar-chart-steps"></i>{% endblock %}
+{% block page_title %}Analyse multidimensionnelle OLAP{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar" id="formCube">
+  <div>
+    <label>Mesure</label>
+    <select name="mesure" class="form-select" style="min-width:200px;">
+      {% for m in mesures %}
+        <option value="{{ m.code }}" {% if m.code == mesure_sel %}selected{% endif %}>{{ m.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Axe (lignes)</label>
+    <select name="axe_ligne" class="form-select" style="min-width:160px;">
+      {% for a in axes %}
+        <option value="{{ a.code }}" {% if a.code == axe_ligne_sel %}selected{% endif %}>{{ a.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Axe (colonnes)</label>
+    <select name="axe_colonne" class="form-select" style="min-width:160px;">
+      <option value="">— aucun (1D) —</option>
+      {% for a in axes %}
+        <option value="{{ a.code }}" {% if a.code == axe_colonne_sel %}selected{% endif %}>{{ a.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Période</label>
+    <div class="d-flex gap-2">
+      <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}" style="min-width:140px;">
+      <input type="date" name="date_fin"   class="form-control" value="{{ date_fin }}"   style="min-width:140px;">
+    </div>
+  </div>
+  <div class="mt-auto">
+    <button type="submit" class="btn-filter"><i class="bi bi-play-fill me-1"></i>Calculer</button>
+  </div>
+</form>
+
+<!-- Résumé -->
+{% if resume %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2 fade-in fade-in-1">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-body">
+        <div class="kpi-label">Total</div>
+        <div class="kpi-value">{{ resume.total|floatformat:1|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 fade-in fade-in-2">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-body">
+        <div class="kpi-label">Moyenne</div>
+        <div class="kpi-value">{{ resume.moyenne|floatformat:1|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 fade-in fade-in-3">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-body">
+        <div class="kpi-label">Maximum</div>
+        <div class="kpi-value">{{ resume.maximum|floatformat:1|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 fade-in fade-in-4">
+    <div class="kpi-card kpi-perf">
+      <div class="kpi-body">
+        <div class="kpi-label">Minimum</div>
+        <div class="kpi-value">{{ resume.minimum|floatformat:1|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 fade-in fade-in-5">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-body">
+        <div class="kpi-label">Groupes</div>
+        <div class="kpi-value">{{ resume.nb_avec_donnees }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <!-- Graphique -->
+  <div class="col-lg-7 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-bar-chart-line me-2" style="color:var(--pad-blue-light)"></i>Résultat du cube</div>
+          <div class="chart-subtitle">{{ mesure_sel }} × {{ axe_ligne_sel }}{% if axe_colonne_sel %} × {{ axe_colonne_sel }}{% endif %}</div>
+        </div>
+        <select id="selChartType" class="form-select form-select-sm" style="width:auto;">
+          <option value="bar">Barres</option>
+          <option value="line">Courbe</option>
+          <option value="doughnut">Donut</option>
+        </select>
+      </div>
+      <canvas id="chartCube" height="130"></canvas>
+    </div>
+  </div>
+
+  <!-- Tableau résultat -->
+  <div class="col-lg-5 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title"><i class="bi bi-table me-2" style="color:var(--pad-teal)"></i>Données brutes</div>
+      </div>
+      <div style="max-height:380px;overflow-y:auto;">
+        <table class="table pad-table mb-0">
+          <thead>
+            <tr>
+              <th>Groupe</th>
+              {% if axe_colonne_sel %}<th>Colonne</th>{% endif %}
+              <th class="text-end">Valeur</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in resultats %}
+            <tr>
+              <td>{{ row.label|default:row.groupe }}</td>
+              {% if axe_colonne_sel %}<td><small>{{ row.label_colonne|default:row.colonne }}</small></td>{% endif %}
+              <td class="text-end"><strong>{{ row.valeur|floatformat:2|default:"—" }}</strong></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted text-center py-3">Aucun résultat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ cube_json|json_script:"cubeResultats-data" }}
+<script>
+window.addEventListener('load', function() {
+const cubeResultats = JSON.parse(document.getElementById("cubeResultats-data").textContent);
+const COULEURS = ['#2980b9','#e67e22','#148f77','#8e44ad','#c0392b','#16a085','#d35400','#1abc9c','#f39c12'];
+let chartCube = null;
+
+function buildCube(type) {
+  const ctx = document.getElementById('chartCube');
+  if (chartCube) chartCube.destroy();
+  const labels = cubeResultats.map(r => r.label || r.label_ligne || r.groupe);
+  const values = cubeResultats.map(r => r.valeur);
+  chartCube = new Chart(ctx, {
+    type: type,
+    data: {
+      labels,
+      datasets: [{
+        label: 'Valeur',
+        data: values,
+        backgroundColor: type === 'doughnut'
+          ? COULEURS.slice(0, labels.length)
+          : COULEURS[0] + 'cc',
+        borderColor: type !== 'doughnut' ? COULEURS[0] : undefined,
+        borderWidth: type !== 'doughnut' ? 1.5 : 2,
+        borderRadius: type === 'bar' ? 6 : undefined,
+        fill: type === 'line' ? true : undefined,
+        backgroundColor: type === 'line' ? 'rgba(41,128,185,.1)' : (type === 'doughnut' ? COULEURS.slice(0, labels.length) : COULEURS[0] + 'cc'),
+        borderColor: type === 'line' ? '#2980b9' : undefined,
+        tension: type === 'line' ? .35 : undefined,
+        pointRadius: type === 'line' ? 4 : undefined,
+        pointBackgroundColor: type === 'line' ? '#2980b9' : undefined,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: type === 'doughnut' ? '60%' : undefined,
+      plugins: { legend: { position: type === 'doughnut' ? 'bottom' : 'top', display: type === 'doughnut' } },
+      scales: type !== 'doughnut' ? {
+        y: { beginAtZero: true, grid: { color: '#f0f4f8' } },
+        x: { grid: { display: false } }
+      } : undefined
+    }
+  });
+}
+buildCube('bar');
+document.getElementById('selChartType').addEventListener('change', e => buildCube(e.target.value));
+}); // end load
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Journal des actions — PAD{% endblock %}
+{% block page_icon %}<i class="bi bi-journal-text"></i>{% endblock %}
+{% block page_title %}Journal des actions utilisateurs{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div>
+    <label>Type d'action</label>
+    <select name="type_action" class="form-select" style="min-width:180px;">
+      <option value="">Toutes les actions</option>
+      {% for code, label in types_action %}
+        <option value="{{ code }}" {% if code == type_sel %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Utilisateur</label>
+    <select name="user_id" class="form-select" style="min-width:160px;">
+      <option value="">Tous</option>
+      {% for u in users_liste %}
+        <option value="{{ u.pk }}" {% if u.pk|stringformat:"s" == user_sel %}selected{% endif %}>{{ u.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Période</label>
+    <div class="d-flex gap-2">
+      <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}" style="min-width:135px;">
+      <input type="date" name="date_fin"   class="form-control" value="{{ date_fin }}"   style="min-width:135px;">
+    </div>
+  </div>
+  <div>
+    <label>Statut</label>
+    <select name="succes" class="form-select" style="min-width:120px;">
+      <option value="">Tous</option>
+      <option value="1" {% if succes_sel == '1' %}selected{% endif %}>Succès</option>
+      <option value="0" {% if succes_sel == '0' %}selected{% endif %}>Erreurs</option>
+    </select>
+  </div>
+  <div class="mt-auto">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+  </div>
+</form>
+
+<!-- Stats rapides -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3 fade-in fade-in-1">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-activity"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Actions (7j)</div>
+        <div class="kpi-value">{{ stats.total_7j }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-2">
+    <div class="kpi-card kpi-alert">
+      <div class="kpi-icon"><i class="bi bi-x-circle"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Erreurs (7j)</div>
+        <div class="kpi-value">{{ stats.erreurs_7j }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-3">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-icon"><i class="bi bi-person-check"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Connexions (7j)</div>
+        <div class="kpi-value">{{ stats.connexions_7j }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-4">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-icon"><i class="bi bi-file-earmark-text"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Rapports (7j)</div>
+        <div class="kpi-value">{{ stats.rapports_7j }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="chart-card fade-in">
+  <div class="chart-header mb-2">
+    <div class="chart-title"><i class="bi bi-list-ul me-2" style="color:var(--pad-blue-light)"></i>
+      Entrées — <span class="text-muted fw-normal" style="font-size:.85rem;">{{ page_obj.paginator.count }} résultat(s)</span>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table pad-table mb-0">
+      <thead>
+        <tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Description</th><th>IP</th><th>Résultat</th></tr>
+      </thead>
+      <tbody>
+        {% for a in page_obj %}
+        <tr>
+          <td><small style="white-space:nowrap;">{{ a.date_action|date:"d/m/Y H:i:s" }}</small></td>
+          <td>
+            {% if a.utilisateur %}
+              <span class="fw-bold">{{ a.utilisateur.username }}</span>
+            {% else %}
+              <span class="text-muted">anonyme</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge rounded-pill badge-trafic" style="font-size:.7rem;">
+              {{ a.get_type_action_display }}
+            </span>
+          </td>
+          <td><small>{{ a.description|truncatechars:80 }}</small></td>
+          <td><small class="text-muted font-monospace">{{ a.ip_address|default:"—" }}</small></td>
+          <td>
+            {% if a.succes %}
+              <span class="badge" style="background:#d1f2eb;color:#0b6e4f;font-size:.65rem;">✓ OK</span>
+            {% else %}
+              <span class="badge" style="background:#fadbd8;color:#922b21;font-size:.65rem;">✗ Erreur</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">Aucune entrée dans le journal</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm">
+      {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&type_action={{ type_sel }}&user_id={{ user_sel }}&succes={{ succes_sel }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}">‹</a></li>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num|add:"-2" <= page_obj.number and page_obj.number <= num|add:"2" %}
+          <li class="page-item"><a class="page-link" href="?page={{ num }}&type_action={{ type_sel }}&user_id={{ user_sel }}&succes={{ succes_sel }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}">{{ num }}</a></li>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&type_action={{ type_sel }}&user_id={{ user_sel }}&succes={{ succes_sel }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}">›</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

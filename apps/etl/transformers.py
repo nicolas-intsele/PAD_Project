@@ -53,12 +53,12 @@ def nettoyer_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     colonnes_texte = ["navire_imo", "navire_nom", "type_navire", "compagnie",
-                       "agent_maritime", "quai", "terminal", "pavillon", "statut"]
+                       "agent_maritime", "poste", "terminal", "pavillon", "statut"]
     for col in colonnes_texte:
         if col in df.columns:
             df[col] = df[col].apply(_normaliser_texte)
 
-    for col in ["navire_nom", "compagnie", "agent_maritime", "quai", "terminal"]:
+    for col in ["navire_nom", "compagnie", "agent_maritime", "poste", "terminal"]:
         if col in df.columns:
             df[col] = df[col].apply(_normaliser_titre)
 

@@ -1,7 +1,0 @@
-from django.apps import AppConfig
-
-
-class EtlConfig(AppConfig):
-    default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.etl"
-    verbose_name = "ETL — Collecte et intégration des données"

@@ -1,106 +1,90 @@
 """
-Catalogue des indicateurss de performance
-Chaque entrée sert à peupler la table KPI.
+Catalogue des indicateurs de performance (Module 3).
+11 KPI actifs après suppression de DISPONIBILITE_POSTES et CONGESTION.
 """
 
-
 CATALOGUE_KPI = [
-    # ---- KPI Trafic ----
+    # ── Trafic ──
     {
         "code": "TRAFIC_NB_ESCALES",
         "libelle": "Nombre d'escales",
         "categorie": "trafic",
         "unite": "escales",
-        "formule": "Nombre d'escales dont la date d'arrivée en rade est dans la période.",
+        "formule": "Nombre total de lignes (une escale = une arrivée en rade).",
     },
     {
         "code": "TRAFIC_NB_ARRIVEES",
-        "libelle": "Nombre d'arrivées",
+        "libelle": "Nombre d'arrivées à poste",
         "categorie": "trafic",
-        "unite": "départs",
-        "formule": "Nombre de navire arrivés en rade durant la période.",
+        "unite": "arrivées",
+        "formule": "Nombre d'escales avec NAVIRE ARRIVEE POSTE renseigné.",
     },
     {
         "code": "TRAFIC_NB_DEPARTS",
         "libelle": "Nombre de départs",
         "categorie": "trafic",
         "unite": "départs",
-        "formule": "Nombre de navires ayant quitté le port durant la période."
+        "formule": "Nombre d'escales avec NAVIRE APPAREILLE renseigné.",
     },
-    # ---- KPI Temps ----
+    # ── Temps ──
     {
         "code": "TEMPS_ATTENTE_MOYEN",
         "libelle": "Temps moyen d'attente",
         "categorie": "temps",
         "unite": "heures",
-        "formule": "Moyenne de (date_accostage - date_arrivee) sur les escales accostées dans la période."
+        "formule": "Moyenne de (PILOTE A BORD ARRIVEE − ARRIVEE RADE).",
     },
     {
         "code": "TEMPS_SEJOUR_MOYEN",
-        "libelle": "Temps moyen de sejour",
+        "libelle": "Temps moyen de séjour à poste",
         "categorie": "temps",
         "unite": "heures",
-        "formule": "Moyenne de (date_depart - date_arrivee) sur les escales parties dans la période.",
+        "formule": "Moyenne de (NAVIRE APPAREILLE − NAVIRE ARRIVEE POSTE).",
     },
     {
         "code": "TEMPS_PILOTAGE_MOYEN",
         "libelle": "Temps moyen de pilotage",
         "categorie": "temps",
         "unite": "heures",
-        "formule": "Moyenne de la durrée cumulée pilote-à-bord (arrivée + départ) sur la période."
+        "formule": "Moyenne de (NAVIRE ARRIVEE POSTE − PILOTE A BORD ARRIVEE).",
     },
     {
         "code": "TEMPS_ACCOSTAGE_MOYEN",
         "libelle": "Temps moyen d'accostage",
         "categorie": "temps",
         "unite": "heures",
-        "formule": "Moyenne de la durée de la manoeuvre d'accostage (pilote à bord -> arrivée à quai).",
+        "formule": "Moyenne de (PILOTE DEBARQUE ARRIVEE − NAVIRE ARRIVEE POSTE).",
     },
-    # ---- KPI Infrastructure ----
+    # ── Infrastructures ──
     {
         "code": "INFRA_TAUX_OCCUPATION",
-        "libelle": "Taux d'occupation des quais",
+        "libelle": "Taux d'occupation moyen des postes",
         "categorie": "infrastructures",
         "unite": "%",
-        "formule": "Somme des durées d'occupation à quai / (nombre de quais actifs x durée de la période) x 100.",
+        "formule": "Moyenne par poste de (somme des séjours / heures du mois × 100).",
     },
     {
-        "code": "INFRA_ROTATION_QUAIS",
-        "libelle": "Rotation des quais",
+        "code": "INFRA_ROTATION_POSTES",
+        "libelle": "Rotation moyenne des postes",
         "categorie": "infrastructures",
-        "unite": "escales/quai",
-        "formule": "Nombre d'escales de la période / nombre de quais ayant reçu au moins une escale.",
+        "unite": "navires/poste",
+        "formule": "Moyenne par poste du nombre de navires accostés dans la période.",
     },
-    {
-        "code": "INFRA_DISPONIBILITE_POSTES",
-        "libelle": "Disponibilité des postes",
-        "categorie": "infrastructures",
-        "unite": "%",
-        "formule": "100 - taux d'occupation des quais.",
-    },
-    # ---- KPI Performance ----
+    # ── Performance ──
     {
         "code": "PERF_PRODUCTIVITE",
-        "libelle": "Ponctualité",
+        "libelle": "Productivité moyenne",
         "categorie": "performance",
-        "unite": "tonnes/escale",
-        "formule": "Somme (tonnage débarqué + tonnage embarqué) / nombre d'escales de la période.",
+        "unite": "t/h",
+        "formule": "Moyenne de (tonnage total escale / temps_sejour) pour chaque escale.",
     },
     {
-        "code": "PERF_PONCTUALITE",
-        "libelle": "Ponctualité",
+        "code": "PERF_DEBIT_POSTES",
+        "libelle": "Débit moyen des postes",
         "categorie": "performance",
-        "unite": "%",
-        "formule": "Part des escales dont le tepms d'attente est inférieur ou égal au seuil de ponctualité (24h).",
-    },
-    {
-        "code": "PERF_CONGESTION",
-        "libelle": "Congestion",
-        "categorie": "performance",
-        "unite": "%",
-        "formule": "Part des escales dont le temps d'attente dépasse le seuil de congestion (48h).",
+        "unite": "navires/jour",
+        "formule": "Moyenne par poste de (nb navires / (somme séjours en heures / 24)).",
     },
 ]
 
-SEUIL_PONCTUALITE_HEURES = 24
-SEUIL_CONGESTION_HEURES = 48
+SEUIL_CONGESTION_HEURES = 48  # conservé pour compatibilité ascendante

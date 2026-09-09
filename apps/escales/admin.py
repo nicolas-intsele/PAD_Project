@@ -10,8 +10,8 @@ class MobiliserInline(admin.TabularInline):
 
 @admin.register(Escale)
 class EscaleAdmin(admin.ModelAdmin):
-    list_display = ("navire", "quai", "date_arrivee", "date_depart", "temps_attente", "temps_sejour", "statut")
-    list_filter = ("statut", "quai__terminal", "quai")
+    list_display = ("navire", "poste", "date_arrivee", "date_depart", "temps_attente", "temps_sejour", "statut")
+    list_filter = ("statut", "poste__terminal", "poste")
     search_fields = ("navire__nom", "navire__imo")
     date_hierarchy = "date_arrivee"
     inlines = [MobiliserInline]

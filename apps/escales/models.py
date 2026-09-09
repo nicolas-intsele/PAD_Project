@@ -7,7 +7,7 @@ pour écrire directement dans les tables "escale" / "mobiliser" existantes.
 """
 from django.db import models
 
-from apps.referentiel.models import AgentMaritime, Calendrier, Navire, Quai, ServiceNautique
+from apps.referentiel.models import AgentMaritime, Calendrier, Navire, Poste, ServiceNautique
 
 
 class Escale(models.Model):
@@ -19,7 +19,7 @@ class Escale(models.Model):
 
     id_escale = models.AutoField(primary_key=True)
     navire = models.ForeignKey(Navire, on_delete=models.PROTECT, related_name="escales", db_column="id_navire")
-    quai = models.ForeignKey(Quai, on_delete=models.PROTECT, related_name="escales", db_column="id_quai")
+    poste = models.ForeignKey(Poste, on_delete=models.PROTECT, related_name="escales", db_column="id_poste")
     agent = models.ForeignKey(AgentMaritime, on_delete=models.PROTECT, related_name="escales", db_column="id_agent")
     date_ref = models.ForeignKey(Calendrier, on_delete=models.PROTECT, related_name="escales", db_column="id_date")
 
@@ -41,6 +41,13 @@ class Escale(models.Model):
 
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.PLANIFIEE)
 
+    # Mois de référence de l'onglet source (AAAA-MM).
+    # Un navire arrivé en décembre mais enregistré dans l'onglet janvier
+    # aura mois_source="2026-01". C'est ce champ qui sert au calcul des KPI
+    # (Option B : on compte les escales par onglet mensuel, pas par date d'arrivée).
+    mois_source = models.CharField(max_length=7, blank=True, null=True,
+                                   help_text="Mois de l'onglet source, format AAAA-MM")
+
     # Traçabilité de la source d'import. Colonne absente de docs/schema_pad.sql
     # (ajoutée après coup pour l'ETL) : voir docs/ALTER_schema_django.sql pour
     # l'instruction ALTER TABLE à exécuter une seule fois sur une base créée
@@ -54,28 +61,41 @@ class Escale(models.Model):
         verbose_name = "Escale"
         indexes = [
             models.Index(fields=["navire"]),
-            models.Index(fields=["quai"]),
+            models.Index(fields=["poste"]),
             models.Index(fields=["date_ref"]),
+            # MO5 (audit Phase 7) : colonnes filtrées dans tous les calculs KPI et scans alertes.
+            # Sans ces index, chaque appel à calculer_kpi_mois() et scanner_escales_critiques()
+            # scanne la table entière — invisible à 300 lignes, critique à l'échelle réelle du PAD.
+            models.Index(fields=["date_arrivee"]),
+            models.Index(fields=["date_accostage"]),
+            models.Index(fields=["date_depart"]),
         ]
 
     def __str__(self):
-        return f"Escale {self.navire} @ {self.quai} ({self.date_arrivee:%Y-%m-%d})"
+        return f"Escale {self.navire} @ {self.poste} ({self.date_arrivee:%Y-%m-%d})"
 
     def calculer_temps_attente(self):
-        """Temps écoulé entre l'arrivée et l'accostage effectif (en heures).
-        Retourne None si les dates sont incohérentes (accostage avant arrivée),
-        plutôt que de stocker une durée négative qui fausserait les KPI."""
+        """
+        Temps d'attente = pilote_a_bord_arrivee - arrivee_rade (en heures).
+        Correspond au temps que le navire attend en rade avant que le pilote
+        monte à bord pour le conduire à son poste d'accostage.
+        """
         if self.date_arrivee and self.date_accostage:
+            # date_arrivee = arrivee_rade, date_accostage = pilote_a_bord_arrivee
             delta = self.date_accostage - self.date_arrivee
             heures = delta.total_seconds() / 3600
             return round(heures, 2) if heures >= 0 else None
         return None
 
     def calculer_duree_sejour(self):
-        """Durée totale entre l'arrivée et le départ du navire (en heures).
-        Retourne None si les dates sont incohérentes (départ avant arrivée)."""
-        if self.date_arrivee and self.date_depart:
-            delta = self.date_depart - self.date_arrivee
+        """
+        Temps de séjour = navire_appareille - arrivee_poste (en heures).
+        Durée réelle passée à quai (du moment où le navire est à poste
+        jusqu'à son appareillage).
+        """
+        if self.date_appareillage and self.date_depart:
+            # date_depart = arrivee_poste, date_appareillage = navire_appareille
+            delta = self.date_appareillage - self.date_depart
             heures = delta.total_seconds() / 3600
             return round(heures, 2) if heures >= 0 else None
         return None

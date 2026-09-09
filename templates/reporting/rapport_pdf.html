@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>{{ titre }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 1.8cm 1.5cm 2cm 1.5cm;
+    @bottom-center {
+      content: "Port Autonome de Douala — Plateforme Décisionnelle — Page " counter(page) " / " counter(pages);
+      font-size: 8pt; color: #7f8c8d;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 10pt; color: #2c3e50; background: #fff; }
+
+  /* En-tête */
+  .header { background: #0a3d62; color: #fff; padding: 18px 20px 14px; border-radius: 6px 6px 0 0; margin-bottom: 18px; }
+  .header h1 { font-size: 16pt; font-weight: bold; margin-bottom: 3px; }
+  .header .meta { font-size: 9pt; opacity: .8; }
+  .header .badge { background: #e67e22; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 8pt; margin-left: 8px; }
+
+  /* Sections */
+  h2 { font-size: 12pt; font-weight: bold; color: #0a3d62; margin: 20px 0 8px;
+       border-left: 4px solid #e67e22; padding-left: 8px; }
+  h3 { font-size: 10pt; font-weight: bold; color: #1a5276; margin: 14px 0 5px; }
+
+  /* KPI cards en grille */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .kpi-box { border: 1px solid #d1d9e0; border-radius: 6px; padding: 8px 10px; background: #f8fafc; }
+  .kpi-box .kpi-val { font-size: 16pt; font-weight: bold; color: #0a3d62; }
+  .kpi-box .kpi-lab { font-size: 7.5pt; color: #7f8c8d; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .kpi-box .kpi-unit { font-size: 8pt; color: #95a5a6; }
+  .kpi-box.orange { border-left: 3px solid #e67e22; }
+  .kpi-box.teal   { border-left: 3px solid #148f77; }
+  .kpi-box.blue   { border-left: 3px solid #2980b9; }
+  .kpi-box.red    { border-left: 3px solid #c0392b; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt; }
+  thead th { background: #0a3d62; color: #fff; padding: 6px 8px; text-align: left; font-weight: bold; font-size: 8.5pt; }
+  tbody tr:nth-child(even) { background: #f0f4f8; }
+  tbody td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+
+  /* Badges */
+  .badge { padding: 2px 7px; border-radius: 10px; font-size: 7.5pt; font-weight: bold; }
+  .badge-critique { background: #fadbd8; color: #922b21; }
+  .badge-avertissement { background: #fdebd0; color: #784212; }
+  .badge-info { background: #d6eaf8; color: #1a5276; }
+
+  /* Tendance */
+  .trend-up   { color: #148f77; font-weight: bold; }
+  .trend-down { color: #c0392b; font-weight: bold; }
+  .trend-flat { color: #7f8c8d; }
+
+  /* Pied */
+  .footer-note { margin-top: 24px; font-size: 8pt; color: #7f8c8d; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+
+  /* Saut de page */
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- En-tête -->
+<div class="header">
+  <h1>⚓ {{ titre }}</h1>
+  <div class="meta">
+    Période : <strong>{{ date_debut }}</strong> → <strong>{{ date_fin }}</strong>
+    &nbsp;|&nbsp; Généré le : {{ date_generation|date:"d/m/Y à H:i" }}
+    <span class="badge">{{ type_rapport|capfirst }}</span>
+  </div>
+</div>
+
+<!-- 1. Synthèse exécutive -->
+<h2>1. Synthèse exécutive</h2>
+<div class="kpi-grid">
+  <div class="kpi-box blue">
+    <div class="kpi-lab">Escales totales</div>
+    <div class="kpi-val">{{ synthese.kpi_globaux.nb_escales|default:"—" }}</div>
+  </div>
+  <div class="kpi-box teal">
+    <div class="kpi-lab">Attente moyenne</div>
+    <div class="kpi-val">{% if synthese.kpi_globaux.temps_attente_moyen_h %}{{ synthese.kpi_globaux.temps_attente_moyen_h|floatformat:1 }}{% else %}—{% endif %}</div>
+    <div class="kpi-unit">heures</div>
+  </div>
+  <div class="kpi-box orange">
+    <div class="kpi-lab">Séjour moyen</div>
+    <div class="kpi-val">{% if synthese.kpi_globaux.temps_sejour_moyen_h %}{{ synthese.kpi_globaux.temps_sejour_moyen_h|floatformat:1 }}{% else %}—{% endif %}</div>
+    <div class="kpi-unit">heures</div>
+  </div>
+  <div class="kpi-box red">
+    <div class="kpi-lab">Tonnage total</div>
+    <div class="kpi-val">{% if synthese.kpi_globaux.tonnage_total_t %}{{ synthese.kpi_globaux.tonnage_total_t|floatformat:0 }}{% else %}—{% endif %}</div>
+    <div class="kpi-unit">tonnes</div>
+  </div>
+</div>
+
+<!-- 2. KPI par catégorie -->
+<h2>2. Indicateurs de performance</h2>
+
+{% for cat_nom, cat_label in kpis_cats_list %}
+<h3>{{ cat_label }}</h3>
+<table>
+  <thead><tr><th style="width:35%">Indicateur</th><th style="width:15%">Valeur</th><th style="width:12%">Unité</th></tr></thead>
+  <tbody>
+  {% for kpi in kpi_valeurs %}{% if kpi.categorie == cat_nom %}
+  <tr>
+    <td><strong>{{ kpi.libelle }}</strong><br><small style="color:#95a5a6;">{{ kpi.code }}</small></td>
+    <td style="font-weight:bold;color:#0a3d62;">{% if kpi.valeur is not None %}{{ kpi.valeur|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td>{{ kpi.unite }}</td>
+  </tr>
+  {% endif %}{% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+
+<!-- 3. Tendance trafic -->
+<div class="page-break"></div>
+<h2>3. Évolution du trafic</h2>
+{% if tendance.regression %}
+<p style="margin-bottom:10px;">
+  Tendance :
+  {% if tendance.regression.tendance == 'hausse' %}<span class="trend-up">↑ Hausse</span>
+  {% elif tendance.regression.tendance == 'baisse' %}<span class="trend-down">↓ Baisse</span>
+  {% else %}<span class="trend-flat">→ Stable</span>{% endif %}
+  &nbsp;(R² = {{ tendance.regression.r_carre|floatformat:3|default:"—" }},
+  pente = {{ tendance.regression.pente|floatformat:2|default:"—" }} escales/période)
+</p>
+{% endif %}
+<table>
+  <thead><tr><th>Période</th><th>Nb escales</th></tr></thead>
+  <tbody>
+  {% for pt in tendance.serie %}
+  <tr><td>{{ pt.label }}</td><td>{{ pt.valeur|default:"—" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<!-- 4. Top terminaux & compagnies -->
+<h2>4. Performance par terminal et compagnie</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+  <div>
+    <h3>Top terminaux (escales)</h3>
+    <table>
+      <thead><tr><th>#</th><th>Terminal</th><th>Escales</th><th>Part</th></tr></thead>
+      <tbody>
+      {% for t in top_terminaux %}
+      <tr><td>{{ t.rang }}</td><td>{{ t.label }}</td><td>{{ t.valeur }}</td><td>{{ t.part_pct }}%</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <h3>Top compagnies (escales)</h3>
+    <table>
+      <thead><tr><th>#</th><th>Compagnie</th><th>Escales</th><th>Part</th></tr></thead>
+      <tbody>
+      {% for c in top_compagnies %}
+      <tr><td>{{ c.rang }}</td><td>{{ c.label }}</td><td>{{ c.valeur }}</td><td>{{ c.part_pct }}%</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 5. Statuts des escales -->
+<h2>5. Répartition par statut</h2>
+<table>
+  <thead><tr><th>Statut</th><th>Nb escales</th><th>Part (%)</th></tr></thead>
+  <tbody>
+  {% for s in statuts %}
+  <tr><td>{{ s.label }}</td><td>{{ s.nb_escales }}</td><td>{{ s.part_pct }}%</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<!-- 6. Alertes actives -->
+{% if alertes_actives %}
+<div class="page-break"></div>
+<h2>6. Alertes actives</h2>
+<table>
+  <thead><tr><th>Gravité</th><th>Type</th><th>Message</th><th>Date</th></tr></thead>
+  <tbody>
+  {% for a in alertes_actives %}
+  <tr>
+    <td><span class="badge badge-{{ a.niveau_gravite }}">{{ a.niveau_gravite|capfirst }}</span></td>
+    <td>{{ a.get_type_alerte_display }}</td>
+    <td style="font-size:8.5pt;">{{ a.message }}</td>
+    <td style="white-space:nowrap;">{{ a.date_declenchement|date:"d/m/Y" }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="footer-note">
+  Ce rapport a été généré automatiquement par la Plateforme Décisionnelle du Port Autonome de Douala.
+  Les données sont issues du registre des opérations navires. Pour toute question : Direction des Systèmes d'Information.
+</div>
+
+</body>
+</html>

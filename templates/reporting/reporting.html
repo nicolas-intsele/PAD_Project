@@ -1,0 +1,152 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Reporting — PAD Décisionnel{% endblock %}
+{% block page_icon %}<i class="bi bi-file-earmark-text"></i>{% endblock %}
+{% block page_title %}Reporting — Génération de rapports{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Formulaire de génération -->
+  <div class="col-lg-5">
+    <div class="chart-card fade-in">
+      <div class="chart-header mb-3">
+        <div class="chart-title"><i class="bi bi-file-earmark-plus me-2" style="color:var(--pad-blue-light)"></i>Nouveau rapport</div>
+      </div>
+
+      {% if message %}
+        <div class="alert alert-{{ message_type|default:'success' }} alert-dismissible fade show" role="alert" style="border-radius:8px;font-size:.875rem;">
+          {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'dashboard:reporting_generer' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Type de rapport</label>
+          <select name="type_rapport" class="form-select">
+            <option value="journalier">Rapport journalier</option>
+            <option value="hebdomadaire">Rapport hebdomadaire</option>
+            <option value="mensuel" selected>Rapport mensuel</option>
+            <option value="personnalise">Rapport personnalisé</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Période</label>
+          <div class="d-flex gap-2">
+            <div class="flex-fill">
+              <label class="form-label text-muted" style="font-size:.75rem;">Du</label>
+              <input type="date" name="date_debut" class="form-control" value="{{ date_debut_defaut }}">
+            </div>
+            <div class="flex-fill">
+              <label class="form-label text-muted" style="font-size:.75rem;">Au</label>
+              <input type="date" name="date_fin" class="form-control" value="{{ date_fin_defaut }}">
+            </div>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-bold" style="font-size:.85rem;">Format de sortie</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="format" value="pdf" id="fmtPdf" checked>
+              <label class="form-check-label" for="fmtPdf">
+                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>PDF
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="format" value="excel" id="fmtXlsx">
+              <label class="form-check-label" for="fmtXlsx">
+                <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Excel (.xlsx)
+              </label>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn-filter w-100" style="padding:.7rem;">
+          <i class="bi bi-download me-2"></i>Générer et télécharger
+        </button>
+      </form>
+
+      <!-- Raccourcis rapides -->
+      <div class="mt-4">
+        <div class="section-title">Raccourcis rapides</div>
+        <div class="d-grid gap-2">
+          <a href="{% url 'dashboard:reporting_rapide' type='mensuel' format='pdf' %}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-2" style="border-radius:8px;">
+            <i class="bi bi-file-earmark-pdf text-danger"></i> Rapport mensuel courant — PDF
+          </a>
+          <a href="{% url 'dashboard:reporting_rapide' type='mensuel' format='excel' %}" class="btn btn-sm btn-outline-success d-flex align-items-center gap-2" style="border-radius:8px;">
+            <i class="bi bi-file-earmark-spreadsheet text-success"></i> Rapport mensuel courant — Excel
+          </a>
+          <a href="{% url 'dashboard:reporting_rapide' type='hebdomadaire' format='pdf' %}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" style="border-radius:8px;">
+            <i class="bi bi-file-earmark-pdf text-danger"></i> Rapport hebdomadaire — PDF
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historique des rapports -->
+  <div class="col-lg-7">
+    <div class="chart-card fade-in fade-in-2">
+      <div class="chart-header mb-3">
+        <div class="chart-title"><i class="bi bi-clock-history me-2" style="color:var(--pad-teal)"></i>Historique des rapports générés</div>
+        <span class="badge rounded-pill" style="background:#d1f2eb;color:#0b6e4f;">{{ rapports.count }} rapport(s)</span>
+      </div>
+
+      {% if rapports %}
+      <div class="table-responsive">
+        <table class="table pad-table mb-0">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Période</th>
+              <th>Format</th>
+              <th>Taille</th>
+              <th>Généré le</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rapports %}
+            <tr>
+              <td>
+                <span class="badge rounded-pill badge-trafic" style="font-size:.72rem;">
+                  {{ r.get_type_rapport_display }}
+                </span>
+              </td>
+              <td>
+                <small>{{ r.periode_debut|date:"d/m/Y" }} →<br>{{ r.periode_fin|date:"d/m/Y" }}</small>
+              </td>
+              <td>
+                {% if r.format == 'pdf' %}
+                  <i class="bi bi-file-earmark-pdf text-danger"></i> PDF
+                {% else %}
+                  <i class="bi bi-file-earmark-spreadsheet text-success"></i> Excel
+                {% endif %}
+              </td>
+              <td><small class="text-muted">{{ r.taille_lisible }}</small></td>
+              <td><small>{{ r.date_generation|date:"d/m/Y H:i" }}</small></td>
+              <td>
+                {% if r.fichier %}
+                <a href="{% url 'dashboard:reporting_telecharger' r.pk %}"
+                   class="btn btn-sm btn-outline-primary" style="border-radius:6px;" title="Télécharger">
+                  <i class="bi bi-download"></i>
+                </a>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-file-earmark fs-1 d-block mb-3 opacity-25"></i>
+        <p>Aucun rapport généré pour l'instant.</p>
+        <small>Utilisez le formulaire ci-contre pour créer votre premier rapport.</small>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Administration — PAD Décisionnel{% endblock %}
+{% block page_icon %}<i class="bi bi-shield-lock-fill"></i>{% endblock %}
+{% block page_title %}Administration de la plateforme{% endblock %}
+
+{% block content %}
+<!-- Tuiles de navigation admin -->
+<div class="section-title">Modules d'administration</div>
+<div class="row g-3 mb-4">
+
+  <div class="col-sm-6 col-lg-3 fade-in fade-in-1">
+    <a href="{% url 'dashboard:admin_utilisateurs' %}" class="text-decoration-none">
+      <div class="admin-tile">
+        <div class="admin-tile-icon" style="background:#d6eaf8;color:var(--pad-blue);">
+          <i class="bi bi-people-fill"></i>
+        </div>
+        <div class="admin-tile-body">
+          <div class="admin-tile-title">Utilisateurs</div>
+          <div class="admin-tile-count">{{ stats.nb_users }} compte(s)</div>
+          <div class="admin-tile-sub">{{ stats.nb_actifs }} actif(s)</div>
+        </div>
+        <i class="bi bi-chevron-right admin-tile-arrow"></i>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-sm-6 col-lg-3 fade-in fade-in-2">
+    <a href="{% url 'dashboard:admin_journal' %}" class="text-decoration-none">
+      <div class="admin-tile">
+        <div class="admin-tile-icon" style="background:#d1f2eb;color:var(--pad-teal);">
+          <i class="bi bi-journal-text"></i>
+        </div>
+        <div class="admin-tile-body">
+          <div class="admin-tile-title">Journal des actions</div>
+          <div class="admin-tile-count">{{ stats.nb_actions_7j }} action(s)</div>
+          <div class="admin-tile-sub">Ces 7 derniers jours</div>
+        </div>
+        <i class="bi bi-chevron-right admin-tile-arrow"></i>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-sm-6 col-lg-3 fade-in fade-in-3">
+    <a href="{% url 'dashboard:admin_seuils' %}" class="text-decoration-none">
+      <div class="admin-tile">
+        <div class="admin-tile-icon" style="background:#fdebd0;color:var(--pad-orange);">
+          <i class="bi bi-sliders"></i>
+        </div>
+        <div class="admin-tile-body">
+          <div class="admin-tile-title">Seuils d'alerte</div>
+          <div class="admin-tile-count">{{ stats.nb_seuils }} seuil(s)</div>
+          <div class="admin-tile-sub">{{ stats.nb_alertes_actives }} alerte(s) active(s)</div>
+        </div>
+        <i class="bi bi-chevron-right admin-tile-arrow"></i>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-sm-6 col-lg-3 fade-in fade-in-4">
+    <a href="/admin/" target="_blank" class="text-decoration-none">
+      <div class="admin-tile">
+        <div class="admin-tile-icon" style="background:#e8daef;color:#8e44ad;">
+          <i class="bi bi-gear-wide-connected"></i>
+        </div>
+        <div class="admin-tile-body">
+          <div class="admin-tile-title">Admin Django</div>
+          <div class="admin-tile-count">Interface complète</div>
+          <div class="admin-tile-sub">Accès base de données</div>
+        </div>
+        <i class="bi bi-box-arrow-up-right admin-tile-arrow"></i>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Stats système -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title"><i class="bi bi-activity me-2" style="color:var(--pad-blue-light)"></i>Activité récente</div>
+      </div>
+      <table class="table pad-table mb-0">
+        <thead><tr><th>Action</th><th>Utilisateur</th><th>Date</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for action in dernières_actions %}
+          <tr>
+            <td><small>{{ action.get_type_action_display }}</small></td>
+            <td><small>{{ action.utilisateur.username|default:"—" }}</small></td>
+            <td><small>{{ action.date_action|date:"d/m H:i" }}</small></td>
+            <td>
+              {% if action.succes %}
+                <span class="badge" style="background:#d1f2eb;color:#0b6e4f;font-size:.65rem;">OK</span>
+              {% else %}
+                <span class="badge" style="background:#fadbd8;color:#922b21;font-size:.65rem;">Erreur</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted text-center py-3">Aucune action récente</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col-lg-6 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title"><i class="bi bi-people me-2" style="color:var(--pad-teal)"></i>Répartition par rôle</div>
+      </div>
+      <canvas id="chartRoles" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Informations système -->
+<div class="section-title">État du système</div>
+<div class="row g-3">
+  {% for item in system_info %}
+  <div class="col-sm-6 col-lg-3 fade-in">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-body">
+        <div class="kpi-label">{{ item.label }}</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--pad-blue);">{{ item.valeur }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const rolesData = {{ roles_json|safe }};
+new Chart(document.getElementById('chartRoles'), {
+  type: 'doughnut',
+  data: {
+    labels: rolesData.labels,
+    datasets: [{
+      data: rolesData.values,
+      backgroundColor: ['#1B2B6B','#148f77','#e67e22','#8e44ad'],
+      borderWidth: 2, borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '60%',
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } } }
+  }
+});
+</script>
+{% endblock %}

@@ -6,7 +6,7 @@ import logging
 from apps.etl.models import JournalImport
 from apps.etl.services import ImportResult
 
-from .extractor import extraire_escales, extraire_navires_reference, extraire_quais_reference
+from .extractor import extraire_escales, extraire_navires_reference, extraire_postes_reference
 from .loader import ReferentielCache, RegistrePADLoader
 from .validators import RegistrePADQualityController
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def run_import_registre_pad(fichier, source_name: str, utilisateur=None) -> ImportResult:
     """
     Pipeline ETL dédié au format réel "Registre mensuel des escales" du PAD
-    (classeur multi-onglets avec référentiels navires et quais intégrés).
+    (classeur multi-onglets avec référentiels navires et postes intégrés).
     """
     journal = JournalImport.objects.create(source=source_name, utilisateur=utilisateur)
     logger.info("Import registre PAD #%s démarré : %s", journal.pk, source_name)
@@ -25,7 +25,7 @@ def run_import_registre_pad(fichier, source_name: str, utilisateur=None) -> Impo
         # 1. EXTRACTION (escales de tous les onglets mensuels non vides + référentiels)
         df_escales = extraire_escales(fichier)
         df_navires_ref = extraire_navires_reference(fichier)
-        df_quais_ref = extraire_quais_reference(fichier)
+        df_postes_ref = extraire_postes_reference(fichier)
         journal.nb_lignes_lues = len(df_escales)
 
         if df_escales.empty:
@@ -38,8 +38,8 @@ def run_import_registre_pad(fichier, source_name: str, utilisateur=None) -> Impo
         for issue in rapport.to_list():
             journal.ajouter_erreur(issue["ligne"], issue["message"])
 
-        # 3. CHARGEMENT (résolution navires/quais via référentiels + table de faits)
-        cache = ReferentielCache(df_navires_ref, df_quais_ref)
+        # 3. CHARGEMENT (résolution navires/postes via référentiels + table de faits)
+        cache = ReferentielCache(df_navires_ref, df_postes_ref)
         loader = RegistrePADLoader(cache, journal_import=journal)
         nb_chargees, erreurs_chargement = loader.charger(df_escales, lignes_ignorees=rapport.blocking_lines)
         for err in erreurs_chargement:

@@ -1,0 +1,117 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Gestion utilisateurs — PAD{% endblock %}
+{% block page_icon %}<i class="bi bi-people-fill"></i>{% endblock %}
+{% block page_title %}Gestion des utilisateurs{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="section-title mb-0">Comptes utilisateurs ({{ utilisateurs.count }})</div>
+  <a href="{% url 'dashboard:admin_user_creer' %}" class="btn btn-sm btn-primary"
+     style="background:var(--pad-blue);border:none;border-radius:8px;padding:.45rem 1rem;font-weight:600;">
+    <i class="bi bi-person-plus me-1"></i>Nouvel utilisateur
+  </a>
+</div>
+
+<!-- Filtres -->
+<form method="get" class="filter-bar">
+  <div>
+    <label>Rôle</label>
+    <select name="role" class="form-select" style="min-width:160px;">
+      <option value="">Tous les rôles</option>
+      {% for r in roles %}
+        <option value="{{ r.code }}" {% if r.code == role_sel %}selected{% endif %}>{{ r.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Statut</label>
+    <select name="actif" class="form-select" style="min-width:130px;">
+      <option value="">Tous</option>
+      <option value="1" {% if actif_sel == '1' %}selected{% endif %}>Actifs</option>
+      <option value="0" {% if actif_sel == '0' %}selected{% endif %}>Inactifs</option>
+    </select>
+  </div>
+  <div>
+    <label>Recherche</label>
+    <input type="text" name="q" class="form-control" value="{{ q }}" placeholder="Nom, email…" style="min-width:180px;">
+  </div>
+  <div class="mt-auto">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+  </div>
+</form>
+
+<div class="chart-card fade-in">
+  <div class="table-responsive">
+    <table class="table pad-table mb-0">
+      <thead>
+        <tr>
+          <th>Utilisateur</th><th>Rôle</th><th>Email</th><th>Poste</th>
+          <th>Dernière connexion</th><th>Statut</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in utilisateurs %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="user-avatar">{{ u.username|slice:":2"|upper }}</div>
+              <div>
+                <strong>{{ u.get_full_name|default:u.username }}</strong>
+                <div style="font-size:.72rem;color:var(--pad-muted);">@{{ u.username }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% with role=u.profil.role %}
+              {% if role %}
+                <span class="badge rounded-pill" style="
+                  {% if role.code == 'admin' %}background:#1B2B6B;
+                  {% elif role.code == 'direction' %}background:#148f77;
+                  {% elif role.code == 'exploitation' %}background:#e67e22;
+                  {% else %}background:#8e44ad;{% endif %}
+                  color:#fff;font-size:.72rem;padding:.3rem .7rem;">
+                  {{ role.libelle }}
+                </span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td><small>{{ u.email|default:"—" }}</small></td>
+          <td><small>{{ u.profil.poste|default:"—" }}</small></td>
+          <td>
+            <small>{% if u.last_login %}{{ u.last_login|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Jamais</span>{% endif %}</small>
+          </td>
+          <td>
+            {% if u.is_active and u.profil.actif %}
+              <span class="badge" style="background:#d1f2eb;color:#0b6e4f;border-radius:20px;font-size:.72rem;">Actif</span>
+            {% else %}
+              <span class="badge" style="background:#fadbd8;color:#922b21;border-radius:20px;font-size:.72rem;">Inactif</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'dashboard:admin_user_modifier' u.pk %}"
+                 class="btn btn-sm btn-outline-primary" style="border-radius:6px;" title="Modifier">
+                <i class="bi bi-pencil"></i>
+              </a>
+              {% if u.pk != request.user.pk %}
+              <form method="post" action="{% url 'dashboard:admin_user_toggle' u.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-{% if u.is_active %}warning{% else %}success{% endif %}"
+                        style="border-radius:6px;" title="{% if u.is_active %}Désactiver{% else %}Activer{% endif %}">
+                  <i class="bi bi-{% if u.is_active %}pause{% else %}play{% endif %}"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">Aucun utilisateur trouvé</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

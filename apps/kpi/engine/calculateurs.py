@@ -1,197 +1,210 @@
 """
-Moteur de calcul des KPI.
+Moteur de calcul des KPI (Module 3).
 
-Chaque fonction calcule un indicateur sur une période [date_debut, date_fin]
-(bornes incluses) à partir de la table de faits ESCALE, et retourne une
-valeur numérique (ou None si non calculable faute de données).
+Filtre de période : les KPI sont calculés par mois d'onglet source (mois_source).
+Un navire arrivé en décembre mais enregistré dans l'onglet janvier compte
+dans les KPI de janvier (Option B validée par le PAD).
+
+Correspondance colonnes Excel → champs Escale :
+  ARRIVEE RADE           → date_arrivee
+  PILOTE A BORD ARRIVEE  → date_accostage
+  NAVIRE ARRIVEE POSTE   → date_depart
+  NAVIRE APPAREILLE      → date_appareillage
+  PILOTE DEBARQUE ARRIVEE→ (utilisé pour temps_accostage)
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
-from django.db.models import Avg, Sum
 
-from apps.escales.models import Escale
-from apps.referentiel.models import Quai
-
-from ..catalogue import SEUIL_CONGESTION_HEURES, SEUIL_PONCTUALITE_HEURES
-
-
-def _arrondir(valeur, decimales=3):
+def _arrondir(valeur, decimales=2):
     if valeur is None:
         return None
-    return round(Decimal(valeur), decimales)
+    return round(Decimal(str(valeur)), decimales)
 
 
-# --------------------------------------------------------------------------
-# KPI Trafic
-# --------------------------------------------------------------------------
-
-def nombre_escales(date_debut: date, date_fin: date) -> Decimal:
-    n = Escale.objects.filter(date_arrivee__date__range=(date_debut, date_fin)).count()
-    return Decimal(n)
+def _qs_mois(annee: int, mois: int):
+    """QuerySet de base filtré par mois_source (AAAA-MM)."""
+    from apps.escales.models import Escale
+    cle = f"{annee}-{mois:02d}"
+    return Escale.objects.filter(mois_source=cle)
 
 
-def nombre_arrivees(date_debut: date, date_fin: date) -> Decimal:
-    # Identique à nombre_escales dans ce modèle (une escale = une arrivée),
-    # conservé comme KPI distinct pour se conformer au cahier des charges.
-    return nombre_escales(date_debut, date_fin)
+# ── KPI Trafic ────────────────────────────────────────────────────────────────
+
+def nombre_escales(annee: int, mois: int) -> Decimal:
+    """Nombre total d'escales enregistrées dans l'onglet du mois."""
+    return Decimal(_qs_mois(annee, mois).count())
 
 
-def nombre_departs(date_debut: date, date_fin: date) -> Decimal:
-    n = Escale.objects.filter(date_depart__date__range=(date_debut, date_fin)).count()
-    return Decimal(n)
+def nombre_arrivees(annee: int, mois: int) -> Decimal:
+    """Nombre d'escales avec NAVIRE ARRIVEE POSTE renseigné."""
+    return Decimal(_qs_mois(annee, mois).filter(date_depart__isnull=False).count())
 
 
-# --------------------------------------------------------------------------
-# KPI Temps
-# --------------------------------------------------------------------------
-
-def temps_attente_moyen(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_accostage__date__range=(date_debut, date_fin), temps_attente__isnull=False
-    )
-    moyenne = qs.aggregate(m=Avg("temps_attente"))["m"]
-    return _arrondir(moyenne, 2)
+def nombre_departs(annee: int, mois: int) -> Decimal:
+    """Nombre d'escales avec NAVIRE APPAREILLE renseigné."""
+    return Decimal(_qs_mois(annee, mois).filter(date_appareillage__isnull=False).count())
 
 
-def temps_sejour_moyen(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_depart__date__range=(date_debut, date_fin), temps_sejour__isnull=False
-    )
-    moyenne = qs.aggregate(m=Avg("temps_sejour"))["m"]
-    return _arrondir(moyenne, 2)
+# ── KPI Temps ─────────────────────────────────────────────────────────────────
+
+def temps_attente_moyen(annee: int, mois: int):
+    """Moyenne de (PILOTE A BORD ARRIVEE − ARRIVEE RADE) en heures."""
+    from django.db.models import Avg
+    m = _qs_mois(annee, mois).filter(
+        temps_attente__isnull=False
+    ).aggregate(m=Avg("temps_attente"))["m"]
+    return _arrondir(m)
 
 
-def temps_pilotage_moyen(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_arrivee__date__range=(date_debut, date_fin), temps_pilotage__isnull=False
-    )
-    moyenne = qs.aggregate(m=Avg("temps_pilotage"))["m"]
-    return _arrondir(moyenne, 2)
+def temps_sejour_moyen(annee: int, mois: int):
+    """Moyenne de (NAVIRE APPAREILLE − NAVIRE ARRIVEE POSTE) en heures."""
+    from django.db.models import Avg
+    m = _qs_mois(annee, mois).filter(
+        temps_sejour__isnull=False
+    ).aggregate(m=Avg("temps_sejour"))["m"]
+    return _arrondir(m)
 
 
-def temps_accostage_moyen(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_arrivee__date__range=(date_debut, date_fin), temps_accostage__isnull=False
-    )
-    moyenne = qs.aggregate(m=Avg("temps_accostage"))["m"]
-    return _arrondir(moyenne, 2)
+def temps_pilotage_moyen(annee: int, mois: int):
+    """Moyenne de (NAVIRE ARRIVEE POSTE − PILOTE A BORD ARRIVEE) en heures."""
+    from django.db.models import Avg
+    m = _qs_mois(annee, mois).filter(
+        temps_pilotage__isnull=False
+    ).aggregate(m=Avg("temps_pilotage"))["m"]
+    return _arrondir(m)
 
 
-# --------------------------------------------------------------------------
-# KPI Infrastructures
-# --------------------------------------------------------------------------
+def temps_accostage_moyen(annee: int, mois: int):
+    """Moyenne de (PILOTE DEBARQUE ARRIVEE − NAVIRE ARRIVEE POSTE) en heures."""
+    from django.db.models import Avg
+    m = _qs_mois(annee, mois).filter(
+        temps_accostage__isnull=False
+    ).aggregate(m=Avg("temps_accostage"))["m"]
+    return _arrondir(m)
 
-def _duree_periode_heures(date_debut: date, date_fin: date) -> float:
-    nb_jours = (date_fin - date_debut).days + 1
-    return nb_jours * 24
+
+# ── KPI Infrastructures ───────────────────────────────────────────────────────
+
+def _heures_mois(annee: int, mois: int) -> float:
+    import calendar
+    return calendar.monthrange(annee, mois)[1] * 24
 
 
-def taux_occupation_quais(date_debut: date, date_fin: date):
+def taux_occupation_postes(annee: int, mois: int):
     """
-    Somme des durées réelles d'occupation à quai (accostage -> appareillage,
-    et non le temps de séjour total qui inclut l'attente en rade) des escales
-    de la période, rapportée à la capacité théorique totale (nombre de quais
-    référencés x durée de la période).
+    Taux d'occupation moyen des postes (%).
+    Pour chaque poste actif : somme séjours / heures_mois × 100.
+    Résultat = moyenne des taux de tous les postes actifs.
     """
-    nb_quais = Quai.objects.count()
-    if nb_quais == 0:
+    heures = _heures_mois(annee, mois)
+    escales = list(_qs_mois(annee, mois).filter(
+        temps_sejour__isnull=False
+    ).values("poste_id", "temps_sejour"))
+
+    if not escales:
         return None
 
-    qs = Escale.objects.filter(
-        date_accostage__date__range=(date_debut, date_fin),
-        date_accostage__isnull=False,
-        date_appareillage__isnull=False,
-    ).values_list("date_accostage", "date_appareillage")
+    sejour_par_poste: dict[int, float] = {}
+    for e in escales:
+        pid = e["poste_id"]
+        sejour_par_poste[pid] = sejour_par_poste.get(pid, 0) + float(e["temps_sejour"])
 
-    occupation_totale_heures = sum(
-        max((appareillage - accostage).total_seconds() / 3600, 0)
-        for accostage, appareillage in qs
-    )
+    taux = [min(s / heures * 100, 100) for s in sejour_par_poste.values()]
+    return _arrondir(sum(taux) / len(taux))
 
-    capacite_totale = nb_quais * _duree_periode_heures(date_debut, date_fin)
-    if capacite_totale == 0:
+
+def rotation_postes(annee: int, mois: int):
+    """
+    Rotation moyenne des postes (navires/poste).
+    Nombre moyen de navires accostés par poste actif dans le mois.
+    """
+    escales = list(_qs_mois(annee, mois).values("poste_id"))
+    if not escales:
         return None
-    taux = (occupation_totale_heures / capacite_totale) * 100
-    return _arrondir(min(taux, 100), 2)
+
+    compteur: dict[int, int] = {}
+    for e in escales:
+        pid = e["poste_id"]
+        compteur[pid] = compteur.get(pid, 0) + 1
+
+    return _arrondir(sum(compteur.values()) / len(compteur))
 
 
-def rotation_quais(date_debut: date, date_fin: date):
-    nb_quais_actifs = (
-        Escale.objects.filter(date_arrivee__date__range=(date_debut, date_fin))
-        .values("quai").distinct().count()
-    )
-    if nb_quais_actifs == 0:
+# ── KPI Performance ───────────────────────────────────────────────────────────
+
+def productivite(annee: int, mois: int):
+    """
+    Productivité moyenne (t/h).
+    Moyenne de (tonnage_total / temps_sejour) pour chaque escale avec séjour > 0.
+    """
+    escales = list(_qs_mois(annee, mois).filter(
+        temps_sejour__isnull=False,
+    ).exclude(
+        tonnage_debarque__isnull=True,
+        tonnage_embarque__isnull=True,
+    ).values("tonnage_debarque", "tonnage_embarque", "temps_sejour"))
+
+    valeurs = []
+    for e in escales:
+        tonnage = float(e["tonnage_debarque"] or 0) + float(e["tonnage_embarque"] or 0)
+        sejour = float(e["temps_sejour"])
+        if sejour > 0 and tonnage > 0:
+            valeurs.append(tonnage / sejour)
+
+    if not valeurs:
         return None
-    n = nombre_escales(date_debut, date_fin)
-    return _arrondir(float(n) / nb_quais_actifs, 2)
+    return _arrondir(sum(valeurs) / len(valeurs))
 
 
-def disponibilite_postes(date_debut: date, date_fin: date):
-    taux = taux_occupation_quais(date_debut, date_fin)
-    if taux is None:
+def debit_postes(annee: int, mois: int):
+    """
+    Débit moyen des postes (navires/jour d'occupation).
+    Pour chaque poste actif : nb_navires / (somme_séjours_h / 24).
+    Résultat = moyenne sur tous les postes avec séjour renseigné.
+    """
+    escales = list(_qs_mois(annee, mois).filter(
+        temps_sejour__isnull=False,
+    ).values("poste_id", "temps_sejour"))
+
+    if not escales:
         return None
-    return _arrondir(100 - float(taux), 2)
 
+    sejour_par_poste: dict[int, float] = {}
+    navires_par_poste: dict[int, int] = {}
+    for e in escales:
+        pid = e["poste_id"]
+        sejour_par_poste[pid] = sejour_par_poste.get(pid, 0) + float(e["temps_sejour"])
+        navires_par_poste[pid] = navires_par_poste.get(pid, 0) + 1
 
-# --------------------------------------------------------------------------
-# KPI Performance
-# --------------------------------------------------------------------------
+    valeurs = []
+    for pid, sejour_h in sejour_par_poste.items():
+        jours = sejour_h / 24
+        if jours > 0:
+            valeurs.append(navires_par_poste[pid] / jours)
 
-def productivite(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(date_arrivee__date__range=(date_debut, date_fin))
-    n = qs.count()
-    if n == 0:
+    if not valeurs:
         return None
-    tonnage = qs.aggregate(
-        t=Sum("tonnage_debarque"), e=Sum("tonnage_embarque")
-    )
-    total = (tonnage["t"] or 0) + (tonnage["e"] or 0)
-    if total == 0:
-        return None
-    return _arrondir(float(total) / n, 2)
+    return _arrondir(sum(valeurs) / len(valeurs))
 
 
-def ponctualite(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_accostage__date__range=(date_debut, date_fin), temps_attente__isnull=False
-    )
-    total = qs.count()
-    if total == 0:
-        return None
-    ponctuelles = qs.filter(temps_attente__lte=SEUIL_PONCTUALITE_HEURES).count()
-    return _arrondir((ponctuelles / total) * 100, 2)
-
-
-def congestion(date_debut: date, date_fin: date):
-    qs = Escale.objects.filter(
-        date_accostage__date__range=(date_debut, date_fin), temps_attente__isnull=False
-    )
-    total = qs.count()
-    if total == 0:
-        return None
-    en_congestion = qs.filter(temps_attente__gt=SEUIL_CONGESTION_HEURES).count()
-    return _arrondir((en_congestion / total) * 100, 2)
-
-
-# --------------------------------------------------------------------------
-# Registre des calculateurs, indexé par code KPI
-# --------------------------------------------------------------------------
+# ── Registre ─────────────────────────────────────────────────────────────────
 
 CALCULATEURS = {
-    "TRAFIC_NB_ESCALES": nombre_escales,
-    "TRAFIC_NB_ARRIVEES": nombre_arrivees,
-    "TRAFIC_NB_DEPARTS": nombre_departs,
-    "TEMPS_ATTENTE_MOYEN": temps_attente_moyen,
-    "TEMPS_SEJOUR_MOYEN": temps_sejour_moyen,
-    "TEMPS_PILOTAGE_MOYEN": temps_pilotage_moyen,
+    "TRAFIC_NB_ESCALES":     nombre_escales,
+    "TRAFIC_NB_ARRIVEES":    nombre_arrivees,
+    "TRAFIC_NB_DEPARTS":     nombre_departs,
+    "TEMPS_ATTENTE_MOYEN":   temps_attente_moyen,
+    "TEMPS_SEJOUR_MOYEN":    temps_sejour_moyen,
+    "TEMPS_PILOTAGE_MOYEN":  temps_pilotage_moyen,
     "TEMPS_ACCOSTAGE_MOYEN": temps_accostage_moyen,
-    "INFRA_TAUX_OCCUPATION": taux_occupation_quais,
-    "INFRA_ROTATION_QUAIS": rotation_quais,
-    "INFRA_DISPONIBILITE_POSTES": disponibilite_postes,
-    "PERF_PRODUCTIVITE": productivite,
-    "PERF_PONCTUALITE": ponctualite,
-    "PERF_CONGESTION": congestion,
+    "INFRA_TAUX_OCCUPATION": taux_occupation_postes,
+    "INFRA_ROTATION_POSTES": rotation_postes,
+    "PERF_PRODUCTIVITE":     productivite,
+    "PERF_DEBIT_POSTES":     debit_postes,
 }
+
+# Alias pour compatibilité avec les appels directs depuis les vues
+SEUIL_CONGESTION_HEURES = 48

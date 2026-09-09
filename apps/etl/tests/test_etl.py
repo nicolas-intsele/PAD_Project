@@ -47,12 +47,12 @@ class DataQualityControllerTestCase(TestCase):
         rapport = DataQualityController(df).controler()
         self.assertFalse(rapport.is_valid)
         messages = [i.message for i in rapport.issues]
-        self.assertTrue(any("quai" in m for m in messages))
+        self.assertTrue(any("poste" in m for m in messages))
 
     def test_detecte_valeur_manquante(self):
         df = pd.DataFrame([{
             "navire_imo": "", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "15/01/2026",
         }])
         rapport = DataQualityController(df).controler()
@@ -61,7 +61,7 @@ class DataQualityControllerTestCase(TestCase):
     def test_detecte_date_invalide(self):
         df = pd.DataFrame([{
             "navire_imo": "IMO001", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "32/13/2026",
         }])
         rapport = DataQualityController(df).controler()
@@ -70,7 +70,7 @@ class DataQualityControllerTestCase(TestCase):
     def test_detecte_doublons_comme_avertissement(self):
         ligne = {
             "navire_imo": "IMO001", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "15/01/2026",
         }
         df = pd.DataFrame([ligne, ligne])
@@ -82,7 +82,7 @@ class DataQualityControllerTestCase(TestCase):
     def test_fichier_conforme_ne_leve_aucune_anomalie(self):
         df = pd.DataFrame([{
             "navire_imo": "IMO001", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "15/01/2026 08:00", "date_depart": "16/01/2026 10:00",
         }])
         rapport = DataQualityController(df).controler()
@@ -94,7 +94,7 @@ class DataQualityControllerTestCase(TestCase):
         l'absence d'IMO ne doit jamais, à elle seule, rejeter une escale."""
         df = pd.DataFrame([{
             "navire_imo": "", "navire_nom": "Sans Imo", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "15/01/2026 08:00",
         }])
         rapport = DataQualityController(df).controler()
@@ -105,7 +105,7 @@ class DataQualityControllerTestCase(TestCase):
         (temps d'attente négatif) et doit être rejeté."""
         df = pd.DataFrame([{
             "navire_imo": "IMO001", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "15/01/2026 08:00", "date_accostage": "14/01/2026 08:00",
         }])
         rapport = DataQualityController(df).controler()
@@ -116,7 +116,7 @@ class DataQualityControllerTestCase(TestCase):
         réparation/désarmement) : il doit être signalé, pas rejeté."""
         df = pd.DataFrame([{
             "navire_imo": "IMO001", "navire_nom": "Test", "type_navire": "Vraquier",
-            "compagnie": "X", "agent_maritime": "Y", "quai": "Q1", "terminal": "T1",
+            "compagnie": "X", "agent_maritime": "Y", "poste": "Q1", "terminal": "T1",
             "date_arrivee": "01/01/2026 08:00", "date_depart": "01/04/2026 08:00",
         }])
         rapport = DataQualityController(df).controler()
@@ -128,7 +128,7 @@ class TransformersTestCase(TestCase):
     def test_nettoyage_normalise_les_textes_et_dates(self):
         df = pd.DataFrame([{
             "navire_imo": " imo123 ", "navire_nom": "  msc douala  ",
-            "compagnie": "msc", "quai": "quai c1", "terminal": "terminal a",
+            "compagnie": "msc", "poste": "poste c1", "terminal": "terminal a",
             "agent_maritime": "socopao", "type_navire": "porte-conteneurs",
             "date_arrivee": "15/01/2026 06:30", "statut": "Terminée",
         }])
@@ -153,10 +153,10 @@ class EscaleModelTestCase(TestCase):
         from django.utils import timezone as dj_timezone
 
         from apps.escales.models import Escale
-        from apps.referentiel.models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Quai, Terminal, TypeNavire
+        from apps.referentiel.models import AgentMaritime, Calendrier, CompagnieMaritime, Navire, Poste, Terminal, TypeNavire
 
         terminal, _ = Terminal.objects.get_or_create(nom="T-Test")
-        quai, _ = Quai.objects.get_or_create(nom="Q-Test", terminal=terminal)
+        poste, _ = Poste.objects.get_or_create(nom="Q-Test", terminal=terminal)
         type_navire, _ = TypeNavire.objects.get_or_create(libelle="Test")
         compagnie, _ = CompagnieMaritime.objects.get_or_create(raison_sociale="Compagnie Test")
         navire, _ = Navire.objects.get_or_create(nom="Navire Test", type_navire=type_navire, compagnie=compagnie)
@@ -164,7 +164,7 @@ class EscaleModelTestCase(TestCase):
         arrivee = dj_timezone.now()
         date_ref = Calendrier.get_or_create_from_date(arrivee.date())
 
-        defaults = dict(navire=navire, quai=quai, agent=agent, date_ref=date_ref, date_arrivee=arrivee)
+        defaults = dict(navire=navire, poste=poste, agent=agent, date_ref=date_ref, date_arrivee=arrivee)
         defaults.update(overrides)
         return Escale.objects.create(**defaults)
 

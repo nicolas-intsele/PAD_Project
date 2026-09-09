@@ -1,0 +1,139 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Seuils d'alerte — PAD{% endblock %}
+{% block page_icon %}<i class="bi bi-sliders"></i>{% endblock %}
+{% block page_title %}Paramétrage des seuils d'alerte{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags }} alert-dismissible fade show mb-3" style="border-radius:10px;font-size:.875rem;">
+          {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="chart-card fade-in">
+      <div class="chart-header mb-3">
+        <div>
+          <div class="chart-title"><i class="bi bi-bell-fill me-2" style="color:var(--pad-orange)"></i>Seuils de déclenchement des alertes</div>
+          <div class="chart-subtitle">Définissez les bornes min/max par KPI — une alerte sera créée automatiquement si la valeur calculée dépasse ces seuils.</div>
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'dashboard:admin_seuils_sauver' %}">
+        {% csrf_token %}
+        <div class="table-responsive">
+          <table class="table pad-table mb-0">
+            <thead>
+              <tr>
+                <th style="width:28%">KPI</th>
+                <th style="width:12%">Catégorie</th>
+                <th style="width:12%">Valeur min</th>
+                <th style="width:12%">Valeur max</th>
+                <th style="width:15%">Gravité</th>
+                <th style="width:12%">Unité</th>
+                <th style="width:9%"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for seuil in seuils %}
+              <tr>
+                <td>
+                  <div><strong style="font-size:.875rem;">{{ seuil.kpi.libelle }}</strong></div>
+                  <small class="text-muted font-monospace" style="font-size:.7rem;">{{ seuil.kpi.code }}</small>
+                </td>
+                <td>
+                  <span class="badge badge-{{ seuil.kpi.categorie }}" style="border-radius:20px;font-size:.7rem;padding:.25rem .6rem;">
+                    {{ seuil.kpi.categorie|capfirst }}
+                  </span>
+                </td>
+                <td>
+                  <input type="number" name="min_{{ seuil.pk }}" step="0.001"
+                         class="form-control form-control-sm" style="border-radius:6px;"
+                         value="{{ seuil.valeur_min|default:'' }}" placeholder="—">
+                </td>
+                <td>
+                  <input type="number" name="max_{{ seuil.pk }}" step="0.001"
+                         class="form-control form-control-sm" style="border-radius:6px;"
+                         value="{{ seuil.valeur_max|default:'' }}" placeholder="—">
+                </td>
+                <td>
+                  <select name="gravite_{{ seuil.pk }}" class="form-select form-select-sm" style="border-radius:6px;">
+                    <option value="info"          {% if seuil.niveau_gravite == 'info' %}selected{% endif %}>Information</option>
+                    <option value="avertissement" {% if seuil.niveau_gravite == 'avertissement' %}selected{% endif %}>Avertissement</option>
+                    <option value="critique"      {% if seuil.niveau_gravite == 'critique' %}selected{% endif %}>Critique</option>
+                  </select>
+                </td>
+                <td><small class="text-muted">{{ seuil.kpi.unite }}</small></td>
+                <td>
+                  <a href="{% url 'dashboard:admin_seuil_supprimer' seuil.pk %}"
+                     class="btn btn-sm btn-outline-danger" style="border-radius:6px;"
+                     onclick="return confirm('Supprimer ce seuil ?')">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-muted text-center py-3">Aucun seuil configuré</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if seuils %}
+        <div class="d-flex justify-content-end mt-3 gap-2">
+          <button type="submit" class="btn btn-primary" style="background:var(--pad-blue);border:none;border-radius:8px;padding:.5rem 1.5rem;font-weight:600;">
+            <i class="bi bi-save me-1"></i>Enregistrer les seuils
+          </button>
+        </div>
+        {% endif %}
+      </form>
+    </div>
+
+    <!-- Ajouter un nouveau seuil -->
+    <div class="chart-card mt-3 fade-in fade-in-2">
+      <div class="chart-header mb-3">
+        <div class="chart-title"><i class="bi bi-plus-circle me-2" style="color:var(--pad-teal)"></i>Ajouter un seuil</div>
+      </div>
+      <form method="post" action="{% url 'dashboard:admin_seuil_ajouter' %}">
+        {% csrf_token %}
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-4">
+            <label class="form-label fw-bold" style="font-size:.82rem;">KPI</label>
+            <select name="kpi" class="form-select" style="border-radius:8px;" required>
+              <option value="">— Choisir un KPI —</option>
+              {% for kpi in kpis_disponibles %}
+                <option value="{{ kpi.pk }}">{{ kpi.libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Min</label>
+            <input type="number" name="valeur_min" step="0.001" class="form-control" style="border-radius:8px;" placeholder="—">
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Max</label>
+            <input type="number" name="valeur_max" step="0.001" class="form-control" style="border-radius:8px;" placeholder="—">
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label fw-bold" style="font-size:.82rem;">Gravité</label>
+            <select name="niveau_gravite" class="form-select" style="border-radius:8px;" required>
+              <option value="info">Information</option>
+              <option value="avertissement" selected>Avertissement</option>
+              <option value="critique">Critique</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <button type="submit" class="btn w-100" style="background:var(--pad-teal);color:#fff;border:none;border-radius:8px;font-weight:600;">
+              <i class="bi bi-plus me-1"></i>Ajouter
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

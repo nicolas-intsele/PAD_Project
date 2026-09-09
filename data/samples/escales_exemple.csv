@@ -1,10 +1,10 @@
-navire_imo,navire_nom,type_navire,compagnie,agent_maritime,quai,terminal,pavillon,longueur_navire,jauge_brute,date_arrivee,date_accostage,date_appareillage,date_depart,statut
-IMO9456781,MSC Douala,Porte-conteneurs,MSC,Socopao,Quai C1,Terminal à Conteneurs,Panama,280,95000,15/01/2026 06:30,15/01/2026 10:00,17/01/2026 18:00,17/01/2026 20:00,terminee
-IMO9456782,CMA CGM Wouri,Porte-conteneurs,CMA CGM,Saga Cameroun,Quai C2,Terminal à Conteneurs,France,300,110000,16/01/2026 03:00,16/01/2026 08:30,19/01/2026 12:00,19/01/2026 14:00,terminee
-IMO9456783,Sanaga Trader,Vraquier,Bolloré,Bolloré Transport,Quai V1,Terminal Vraquier,Liberia,220,60000,17/01/2026 14:00,,,,en_cours
-IMO9456784,Atlantic Star,Pétrolier,Total Energies,SGTM,Quai P1,Terminal Pétrolier,Malte,250,80000,18/01/2026 09:00,18/01/2026 20:00,20/01/2026 02:00,20/01/2026 03:00,terminee
-,Navire Sans IMO,Vraquier,Bolloré,Bolloré Transport,Quai V2,Terminal Vraquier,Cameroun,200,55000,19/01/2026 11:00,,,,planifiee
-IMO9456786,Douala Express,Porte-conteneurs,Maersk,Maersk Cameroun,Quai C1,Terminal à Conteneurs,Danemark,290,98000,20/01/2026 07:00,20/01/2026 12:30,,,en_cours
-IMO9456786,Douala Express,Porte-conteneurs,Maersk,Maersk Cameroun,Quai C1,Terminal à Conteneurs,Danemark,290,98000,20/01/2026 07:00,20/01/2026 12:30,,,en_cours
-IMO9456788,Wouri Queen,Vraquier,Bolloré,Bolloré Transport,Quai V1,Terminal Vraquier,Cameroun,210,58000,32/01/2026 09:00,,,,planifiee
-IMO9456789,Kribi Pioneer,Pétrolier,Total Energies,SGTM,Quai P1,Terminal Pétrolier,Malte,260,85000,22/01/2026 05:00,22/01/2026 09:00,20/01/2026 01:00,20/01/2026 02:00,terminee
+navire_imo,navire_nom,type_navire,compagnie,agent_maritime,poste,terminal,pavillon,longueur_navire,jauge_brute,date_arrivee,date_accostage,date_appareillage,date_depart,statut
+IMO9456781,MSC Douala,Porte-conteneurs,MSC,Socopao,Poste C1,Terminal à Conteneurs,Panama,280,95000,15/01/2026 06:30,15/01/2026 10:00,17/01/2026 18:00,17/01/2026 20:00,terminee
+IMO9456782,CMA CGM Wouri,Porte-conteneurs,CMA CGM,Saga Cameroun,Poste C2,Terminal à Conteneurs,France,300,110000,16/01/2026 03:00,16/01/2026 08:30,19/01/2026 12:00,19/01/2026 14:00,terminee
+IMO9456783,Sanaga Trader,Vraquier,Bolloré,Bolloré Transport,Poste V1,Terminal Vraquier,Liberia,220,60000,17/01/2026 14:00,,,,en_cours
+IMO9456784,Atlantic Star,Pétrolier,Total Energies,SGTM,Poste P1,Terminal Pétrolier,Malte,250,80000,18/01/2026 09:00,18/01/2026 20:00,20/01/2026 02:00,20/01/2026 03:00,terminee
+,Navire Sans IMO,Vraquier,Bolloré,Bolloré Transport,Poste V2,Terminal Vraquier,Cameroun,200,55000,19/01/2026 11:00,,,,planifiee
+IMO9456786,Douala Express,Porte-conteneurs,Maersk,Maersk Cameroun,Poste C1,Terminal à Conteneurs,Danemark,290,98000,20/01/2026 07:00,20/01/2026 12:30,,,en_cours
+IMO9456786,Douala Express,Porte-conteneurs,Maersk,Maersk Cameroun,Poste C1,Terminal à Conteneurs,Danemark,290,98000,20/01/2026 07:00,20/01/2026 12:30,,,en_cours
+IMO9456788,Wouri Queen,Vraquier,Bolloré,Bolloré Transport,Poste V1,Terminal Vraquier,Cameroun,210,58000,32/01/2026 09:00,,,,planifiee
+IMO9456789,Kribi Pioneer,Pétrolier,Total Energies,SGTM,Poste P1,Terminal Pétrolier,Malte,260,85000,22/01/2026 05:00,22/01/2026 09:00,20/01/2026 01:00,20/01/2026 02:00,terminee

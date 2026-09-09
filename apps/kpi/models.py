@@ -12,7 +12,7 @@ class KPI(models.Model):
         TRAFIC = "trafic", "Trafic"
         TEMPS = "temps", "Temps"
         INFRASTRUCTURES = "infrastructures", "Infrastructures"
-        PERFORMANCE = "preformance", "Perfomance"
+        PERFORMANCE = "performance", "Performance"
 
     id_kpi = models.AutoField(primary_key=True)
     code = models.CharField(max_length=20, unique=True)
@@ -53,7 +53,7 @@ class ValeurKPI(models.Model):
 
 class SeuilAlerte(models.Model):
     class Gravite(models.TextChoices):
-        INFO = "nifo", "Information"
+        INFO = "info", "Information"
         AVERTISSEMENT = "avertissement", "Avertissement"
         CRITIQUE = "critique", "Critique"
 

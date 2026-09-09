@@ -1,0 +1,227 @@
+{% extends "dashboard/base.html" %}
+{% block title %}KPI & Filtres{% endblock %}
+{% block page_icon %}<i class="bi bi-graph-up-arrow"></i>{% endblock %}
+{% block page_title %}Indicateurs de performance — KPI{% endblock %}
+
+{% block content %}
+<!-- Filtre avancé -->
+<form method="get" class="filter-bar">
+  <div>
+    <label>Période</label>
+    <div class="d-flex gap-2">
+      <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}" style="min-width:140px;">
+      <input type="date" name="date_fin"   class="form-control" value="{{ date_fin }}"   style="min-width:140px;">
+    </div>
+  </div>
+  <div>
+    <label>Catégorie KPI</label>
+    <select name="categorie" class="form-select" style="min-width:160px;">
+      <option value="">Toutes catégories</option>
+      <option value="trafic"          {% if categorie == 'trafic' %}selected{% endif %}>Trafic</option>
+      <option value="temps"           {% if categorie == 'temps' %}selected{% endif %}>Temps</option>
+      <option value="infrastructures" {% if categorie == 'infrastructures' %}selected{% endif %}>Infrastructures</option>
+      <option value="performance"     {% if categorie == 'performance' %}selected{% endif %}>Performance</option>
+    </select>
+  </div>
+  <div>
+    <label>Terminal</label>
+    <select name="terminal" class="form-select" style="min-width:160px;">
+      <option value="">Tous les terminaux</option>
+      {% for t in terminaux %}
+        <option value="{{ t }}" {% if t == terminal_sel %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Granularité</label>
+    <select name="granularite" class="form-select" style="min-width:130px;">
+      <option value="mois"      {% if granularite == 'mois' %}selected{% endif %}>Mensuelle</option>
+      <option value="trimestre" {% if granularite == 'trimestre' %}selected{% endif %}>Trimestrielle</option>
+      <option value="annee"     {% if granularite == 'annee' %}selected{% endif %}>Annuelle</option>
+    </select>
+  </div>
+  <div class="mt-auto">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+  </div>
+</form>
+
+<!-- Cards résumé par catégorie -->
+<div class="section-title">Résumé de la période sélectionnée</div>
+<div class="row g-3 mb-4">
+  {% for cat, data in resume_categories.items %}
+  <div class="col-6 col-lg-3 fade-in fade-in-{{ forloop.counter }}">
+    <div class="chart-card text-center p-3">
+      <div class="mb-2">
+        <span class="badge rounded-pill badge-{{ cat }}" style="font-size:.72rem;padding:.3rem .8rem;">
+          {{ cat|capfirst }}
+        </span>
+      </div>
+      <div style="font-size:2rem;font-weight:800;color:var(--pad-blue);">{{ data.nb_kpi }}</div>
+      <div style="font-size:.8rem;color:var(--pad-muted);">indicateurs calculés</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Graphique évolution KPI sélectionné -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-graph-up me-2" style="color:var(--pad-blue-light)"></i>Évolution temporelle d'un KPI</div>
+          <div class="chart-subtitle">Sélectionnez un indicateur pour voir son évolution</div>
+        </div>
+        <select id="selKpiEvolution" class="form-select form-select-sm" style="width:auto;min-width:220px;">
+          {% for kpi in kpis_list %}
+            <option value="{{ kpi.code }}">{{ kpi.libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <canvas id="chartKpiEvolution" height="120"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-speedometer me-2" style="color:var(--pad-orange)"></i>Performance globale</div>
+          <div class="chart-subtitle">Radar des catégories</div>
+        </div>
+      </div>
+      <canvas id="chartRadar" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Tableau détaillé des KPI avec filtres -->
+<div class="section-title">Détail des indicateurs</div>
+<div class="chart-card fade-in">
+  <div class="table-responsive">
+    <table class="table pad-table mb-0" id="tableKPI">
+      <thead>
+        <tr>
+          <th>Indicateur</th>
+          <th>Catégorie</th>
+          <th>Valeur</th>
+          <th>Unité</th>
+          <th>Période</th>
+          <th>Tendance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in kpi_rows %}
+        <tr>
+          <td>
+            <div><strong>{{ row.libelle }}</strong></div>
+            <small class="text-muted font-monospace" style="font-size:.7rem;">{{ row.code }}</small>
+          </td>
+          <td>
+            <span class="badge badge-{{ row.categorie }}" style="border-radius:20px;font-size:.72rem;padding:.3rem .65rem;">
+              {{ row.categorie|capfirst }}
+            </span>
+          </td>
+          <td>
+            <strong style="font-size:1rem;color:var(--pad-blue);">
+              {% if row.valeur is not None %}{{ row.valeur|floatformat:2 }}{% else %}<span class="text-muted">—</span>{% endif %}
+            </strong>
+          </td>
+          <td><small class="text-muted">{{ row.unite }}</small></td>
+          <td><small>{{ row.periode }}</small></td>
+          <td>
+            {% if row.tendance == 'hausse' %}
+              <span class="kpi-trend up"><i class="bi bi-arrow-up"></i> Hausse</span>
+            {% elif row.tendance == 'baisse' %}
+              <span class="kpi-trend down"><i class="bi bi-arrow-down"></i> Baisse</span>
+            {% else %}
+              <span class="kpi-trend flat"><i class="bi bi-arrow-right"></i> Stable</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-muted text-center py-4">
+            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+            Aucun KPI calculé pour cette période. Vérifiez les filtres ou calculez les KPI.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ all_tendances_json|json_script:"allTendancesData-data" }}
+{{ radar_json|json_script:"radarData-data" }}
+<script>
+window.addEventListener('load', function() {
+const allTendances = JSON.parse(document.getElementById("allTendancesData-data").textContent);
+const radarData = JSON.parse(document.getElementById("radarData-data").textContent);
+
+// Évolution KPI
+let chartEvol = null;
+function buildEvol(code) {
+  const d = allTendances[code] || { labels: [], values: [], valeurs_ajustees: [] };
+  const ctx = document.getElementById('chartKpiEvolution');
+  if (chartEvol) chartEvol.destroy();
+  chartEvol = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: 'Valeur',
+        data: d.values,
+        borderColor: '#2980b9',
+        backgroundColor: 'rgba(41,128,185,.08)',
+        fill: true,
+        tension: .35,
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointBackgroundColor: '#2980b9',
+      }, {
+        label: 'Régression',
+        data: d.valeurs_ajustees,
+        borderColor: '#e67e22',
+        borderWidth: 2,
+        borderDash: [6, 3],
+        pointRadius: 0,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } }
+    }
+  });
+}
+const firstCode = document.getElementById('selKpiEvolution')?.value;
+if (firstCode) buildEvol(firstCode);
+document.getElementById('selKpiEvolution')?.addEventListener('change', e => buildEvol(e.target.value));
+
+// Radar
+new Chart(document.getElementById('chartRadar'), {
+  type: 'radar',
+  data: {
+    labels: radarData.labels,
+    datasets: [{
+      label: 'Performance (%)',
+      data: radarData.values,
+      borderColor: '#2980b9',
+      backgroundColor: 'rgba(41,128,185,.15)',
+      borderWidth: 2,
+      pointBackgroundColor: '#2980b9',
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20 }, grid: { color: '#e2e8f0' } } },
+    plugins: { legend: { display: false } }
+  }
+});
+}); // end load
+</script>
+{% endblock %}
