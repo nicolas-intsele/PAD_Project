@@ -1,0 +1,508 @@
+{% extends "dashboard/base.html" %}
+{% block title %}DAPC{% endblock %}
+{% block page_icon %}<i class="bi bi-building-fill-gear"></i>{% endblock %}
+{% block page_title %}Direction des Affaires Portuaires et de la Compétitivité{% endblock %}
+
+{% block content %}
+
+<!-- Filtres -->
+<form method="get" class="filter-bar">
+  <div>
+    <label>Période</label>
+    <div class="d-flex gap-2">
+      <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}" style="min-width:140px;">
+      <input type="date" name="date_fin"   class="form-control" value="{{ date_fin }}"   style="min-width:140px;">
+    </div>
+  </div>
+  <div>
+    <label>Terminal</label>
+    <select name="terminal" class="form-select" style="min-width:160px;">
+      <option value="">Tous les terminaux</option>
+      {% for t in terminaux %}
+        <option value="{{ t }}" {% if t == terminal_sel %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Comparaison N-1</label>
+    <select name="annee_n1" class="form-select" style="min-width:130px;">
+      {% for a in annees_dispo %}
+        <option value="{{ a }}" {% if a == annee_n1 %}selected{% endif %}>{{ a }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mt-auto">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Appliquer</button>
+  </div>
+</form>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 1 — KPI STRATÉGIQUES (Direction)
+════════════════════════════════════════════ -->
+<div class="section-title">Indicateurs stratégiques</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3 fade-in fade-in-1">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-anchor"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Escales totales</div>
+        <div class="kpi-value">{{ kpi.nb_escales|default:"—" }}</div>
+        <span class="kpi-trend {{ kpi.nb_escales_trend }}">
+          <i class="bi bi-arrow-{% if kpi.nb_escales_trend == 'up' %}up{% else %}down{% endif %}"></i>
+          {{ kpi.nb_escales_delta|default:"" }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-2">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-icon"><i class="bi bi-clock-history"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Attente moyenne</div>
+        <div class="kpi-value">{{ kpi.temps_attente|floatformat:1|default:"—" }}<span class="kpi-unit"> h</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-3">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-icon"><i class="bi bi-building"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Taux d'occupation</div>
+        <div class="kpi-value">{{ kpi.taux_occupation|floatformat:1|default:"—" }}<span class="kpi-unit"> %</span></div>
+        <div class="progress progress-sm mt-2">
+          <div class="progress-bar" style="width:{{ kpi.taux_occupation|default:0 }}%;background:var(--pad-orange);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-4">
+    <div class="kpi-card kpi-perf">
+      <div class="kpi-icon"><i class="bi bi-lightning-charge"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Débit des postes</div>
+        <div class="kpi-value">{{ kpi.debit_postes|floatformat:2|default:"—" }}<span class="kpi-unit"> nav/j</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-1">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Séjour moyen</div>
+        <div class="kpi-value">{{ kpi.temps_sejour|floatformat:1|default:"—" }}<span class="kpi-unit"> h</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-2">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-icon"><i class="bi bi-arrow-repeat"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Rotation des postes</div>
+        <div class="kpi-value">{{ kpi.rotation_postes|floatformat:1|default:"—" }}<span class="kpi-unit"> nav/poste</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-3">
+    <div class="kpi-card kpi-perf">
+      <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Productivité</div>
+        <div class="kpi-value">{{ kpi.productivite|floatformat:0|default:"—" }}<span class="kpi-unit"> t/h</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3 fade-in fade-in-4">
+    <div class="kpi-card kpi-temps">
+      <div class="kpi-icon"><i class="bi bi-person-badge"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Pilotage moyen</div>
+        <div class="kpi-value">{{ kpi.temps_pilotage|floatformat:2|default:"—" }}<span class="kpi-unit"> h</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 2 — KPI TONNAGES (Exploitation)
+════════════════════════════════════════════ -->
+<div class="section-title">Tonnages manutentionnés</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-4 fade-in fade-in-1">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-box-arrow-in-down"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Tonnage débarqué</div>
+        <div class="kpi-value">{{ kpi.tonnage_debarque|floatformat:0|default:"—" }}<span class="kpi-unit"> t</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-4 fade-in fade-in-2">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-box-arrow-up"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Tonnage embarqué</div>
+        <div class="kpi-value">{{ kpi.tonnage_embarque|floatformat:0|default:"—" }}<span class="kpi-unit"> t</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-4 fade-in fade-in-3">
+    <div class="kpi-card kpi-perf">
+      <div class="kpi-icon"><i class="bi bi-boxes"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Tonnage total</div>
+        <div class="kpi-value">{{ kpi.tonnage_total|floatformat:0|default:"—" }}<span class="kpi-unit"> t</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 3 — GRAPHIQUES DIRECTION
+════════════════════════════════════════════ -->
+<div class="section-title">Évolution du trafic</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-8 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-graph-up me-2" style="color:var(--pad-blue-light)"></i>Évolution mensuelle</div>
+          <div class="chart-subtitle">Indicateur sélectionnable</div>
+        </div>
+        <select id="selMesureTendance" class="form-select form-select-sm" style="width:auto;">
+          <option value="nb_escales">Nombre d'escales</option>
+          <option value="temps_attente_moy">Temps d'attente moyen (h)</option>
+          <option value="taux_occupation">Taux d'occupation (%)</option>
+        </select>
+      </div>
+      <canvas id="chartTendance" height="110"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-pie-chart me-2" style="color:var(--pad-orange)"></i>Trafic par terminal</div>
+          <div class="chart-subtitle">Répartition des escales</div>
+        </div>
+      </div>
+      <canvas id="chartTerminaux" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-boxes me-2" style="color:var(--pad-teal)"></i>Tonnage mensuel débarqué vs embarqué</div>
+        </div>
+      </div>
+      <canvas id="chartTonnageMensuel" height="140"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-6 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-bar-chart me-2" style="color:var(--pad-blue)"></i>Comparaison N / N-1 par terminal</div>
+        </div>
+      </div>
+      <canvas id="chartComparaison" height="140"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 4 — GRAPHIQUES EXPLOITATION
+════════════════════════════════════════════ -->
+<div class="section-title">Performance des infrastructures</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-7 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-bar-chart-fill me-2" style="color:var(--pad-orange)"></i>Taux d'occupation par terminal</div>
+        </div>
+      </div>
+      <canvas id="chartOccupation" height="130"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-5 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-clock me-2" style="color:var(--pad-teal)"></i>Temps d'attente par terminal</div>
+        </div>
+      </div>
+      <canvas id="chartAttenteTerminal" height="130"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-anchor me-2" style="color:var(--pad-blue)"></i>Escales par poste</div>
+        </div>
+      </div>
+      <canvas id="chartEscalesPoste" height="180"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-6 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-hourglass me-2" style="color:var(--pad-orange)"></i>Séjour moyen par poste</div>
+        </div>
+      </div>
+      <canvas id="chartSejourPoste" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-boxes me-2" style="color:var(--pad-teal)"></i>Tonnage par terminal</div>
+        </div>
+      </div>
+      <canvas id="chartTonnageTerminal" height="80"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-chart-line me-2" style="color:var(--pad-orange)"></i>Évolution du taux d'occupation</div>
+        </div>
+      </div>
+      <canvas id="chartOccMensuel" height="160"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-6 fade-in fade-in-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-trophy me-2" style="color:var(--pad-orange)"></i>Classement terminaux</div>
+        </div>
+      </div>
+      <table class="table pad-table mb-0">
+        <thead><tr><th>#</th><th>Terminal</th><th>Escales</th><th>Part</th></tr></thead>
+        <tbody>
+          {% for t in classement_terminaux %}
+          <tr>
+            <td><span class="badge" style="background:var(--pad-blue);color:#fff;">{{ t.rang }}</span></td>
+            <td><strong>{{ t.label }}</strong></td>
+            <td>{{ t.valeur }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1 progress-sm"><div class="progress-bar" style="width:{{ t.part_pct }}%;background:var(--pad-blue-light);"></div></div>
+                <span style="font-size:.75rem;width:40px;text-align:right;">{{ t.part_pct }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted text-center py-3">Aucune donnée</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Heatmap -->
+<div class="row g-3 mb-4">
+  <div class="col-12 fade-in fade-in-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><i class="bi bi-grid-3x3-gap me-2" style="color:var(--pad-blue-light)"></i>Heatmap d'occupation des postes</div>
+          <div class="chart-subtitle">Taux d'occupation (%) — Semaine ISO × Poste</div>
+        </div>
+      </div>
+      <div id="heatmapPostes" style="height:320px;"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ tendance_json|json_script:"tendanceData-data" }}
+{{ terminaux_json|json_script:"termData-data" }}
+{{ comparaison_json|json_script:"compData-data" }}
+{{ tonnage_mensuel_json|json_script:"tonnMensData-data" }}
+{{ occupation_terminaux_json|json_script:"occData-data" }}
+{{ attente_terminaux_json|json_script:"attenteData-data" }}
+{{ heatmap_json|json_script:"hmData-data" }}
+{{ occ_mensuel_json|json_script:"occMensData-data" }}
+{{ postes_escales_json|json_script:"postesData-data" }}
+{{ tonnage_terminal_json|json_script:"tonnTermData-data" }}
+<script>
+window.addEventListener('load', function() {
+const COULEURS = ['#2980b9','#e67e22','#148f77','#8e44ad','#c0392b','#16a085','#d35400','#1abc9c','#f39c12','#95a5a6'];
+
+// ── Tendance ──────────────────────────────────────────────────────────────────
+const tendanceData = JSON.parse(document.getElementById("tendanceData-data").textContent);
+let chartTendance = null;
+function buildTendance(mesure) {
+  const d = tendanceData[mesure] || {labels:[], values:[], valeurs_ajustees:[]};
+  const ctx = document.getElementById('chartTendance');
+  if (chartTendance) chartTendance.destroy();
+  chartTendance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { label:'Valeur réelle', data:d.values, borderColor:'#2980b9', backgroundColor:'rgba(41,128,185,.08)',
+          borderWidth:2.5, pointRadius:4, tension:.35, fill:true },
+        { label:'Tendance', data:d.valeurs_ajustees, borderColor:'#e67e22', borderWidth:2,
+          borderDash:[6,3], pointRadius:0, fill:false }
+      ]
+    },
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom'}},
+      scales:{y:{beginAtZero:true,grid:{color:'#f0f4f8'}},x:{grid:{display:false}}} }
+  });
+}
+buildTendance('nb_escales');
+document.getElementById('selMesureTendance').addEventListener('change', e => buildTendance(e.target.value));
+
+// ── Donut terminaux ───────────────────────────────────────────────────────────
+const termData = JSON.parse(document.getElementById("termData-data").textContent);
+new Chart(document.getElementById('chartTerminaux'), {
+  type:'doughnut',
+  data:{ labels:termData.labels, datasets:[{data:termData.values, backgroundColor:COULEURS, borderWidth:2, borderColor:'#fff'}] },
+  options:{ responsive:true, cutout:'65%',
+    plugins:{ legend:{position:'bottom',labels:{boxWidth:12}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} escales (${((ctx.raw/termData.total)*100).toFixed(1)}%)`}} } }
+});
+
+// ── Tonnage mensuel ───────────────────────────────────────────────────────────
+const tonnMens = JSON.parse(document.getElementById("tonnMensData-data").textContent);
+new Chart(document.getElementById('chartTonnageMensuel'), {
+  type:'bar',
+  data:{ labels:tonnMens.labels, datasets:[
+    { label:'Débarqué (t)', data:tonnMens.debarque, backgroundColor:'rgba(41,128,185,.75)', borderRadius:5, stack:'t' },
+    { label:'Embarqué (t)', data:tonnMens.embarque, backgroundColor:'rgba(20,143,119,.75)', borderRadius:5, stack:'t' }
+  ]},
+  options:{ responsive:true, interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom'}},
+    scales:{ x:{stacked:true,grid:{display:false}},
+      y:{stacked:true,beginAtZero:true,grid:{color:'#f0f4f8'},
+         ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M t':v>=1000?(v/1000).toFixed(0)+'k t':v+'t'}} } }
+});
+
+// ── Comparaison N/N-1 ─────────────────────────────────────────────────────────
+const compData = JSON.parse(document.getElementById("compData-data").textContent);
+new Chart(document.getElementById('chartComparaison'), {
+  type:'bar',
+  data:{ labels:compData.labels, datasets:[
+    { label:'N-1', data:compData.ref, backgroundColor:'rgba(41,128,185,.6)', borderRadius:4 },
+    { label:'Actuel', data:compData.comp, backgroundColor:'rgba(230,126,34,.8)', borderRadius:4 }
+  ]},
+  options:{ responsive:true, interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom'}},
+    scales:{y:{beginAtZero:true,grid:{color:'#f0f4f8'}},x:{grid:{display:false}}} }
+});
+
+// ── Occupation par terminal ───────────────────────────────────────────────────
+const occData = JSON.parse(document.getElementById("occData-data").textContent);
+new Chart(document.getElementById('chartOccupation'), {
+  type:'bar',
+  data:{ labels:occData.labels, datasets:[{
+    label:"Taux d'occupation (%)", data:occData.values, borderRadius:6,
+    backgroundColor:occData.values.map(v=>v>70?'rgba(192,57,43,.75)':v>40?'rgba(230,126,34,.75)':'rgba(41,128,185,.75)')
+  }]},
+  options:{ responsive:true, plugins:{legend:{display:false}},
+    scales:{y:{max:100,beginAtZero:true,grid:{color:'#f0f4f8'},ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}} }
+});
+
+// ── Attente par terminal ──────────────────────────────────────────────────────
+const attenteData = JSON.parse(document.getElementById("attenteData-data").textContent);
+new Chart(document.getElementById('chartAttenteTerminal'), {
+  type:'bar',
+  data:{ labels:attenteData.labels, datasets:[{
+    label:'Attente moy. (h)', data:attenteData.values, backgroundColor:'rgba(20,143,119,.7)', borderRadius:5
+  }]},
+  options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+    scales:{x:{beginAtZero:true,grid:{color:'#f0f4f8'}},y:{grid:{display:false}}} }
+});
+
+// ── Escales par poste ─────────────────────────────────────────────────────────
+const postesData = JSON.parse(document.getElementById("postesData-data").textContent);
+new Chart(document.getElementById('chartEscalesPoste'), {
+  type:'bar',
+  data:{ labels:postesData.labels, datasets:[{
+    label:"Nombre d'escales", data:postesData.escales, borderRadius:5,
+    backgroundColor:postesData.escales.map(v=>v>=10?'rgba(192,57,43,.8)':v>=6?'rgba(230,126,34,.8)':'rgba(41,128,185,.8)')
+  }]},
+  options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+    scales:{x:{beginAtZero:true,grid:{color:'#f0f4f8'}},y:{grid:{display:false}}} }
+});
+
+// ── Séjour par poste ──────────────────────────────────────────────────────────
+new Chart(document.getElementById('chartSejourPoste'), {
+  type:'bar',
+  data:{ labels:postesData.labels, datasets:[{
+    label:'Séjour moyen (h)', data:postesData.sejour, borderRadius:5,
+    backgroundColor:postesData.sejour.map(v=>v>=120?'rgba(192,57,43,.75)':v>=72?'rgba(230,126,34,.75)':'rgba(20,143,119,.75)')
+  }]},
+  options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+    scales:{x:{beginAtZero:true,grid:{color:'#f0f4f8'},ticks:{callback:v=>v+'h'}},y:{grid:{display:false}}} }
+});
+
+// ── Tonnage par terminal ──────────────────────────────────────────────────────
+const tonnTermData = JSON.parse(document.getElementById("tonnTermData-data").textContent);
+new Chart(document.getElementById('chartTonnageTerminal'), {
+  type:'bar',
+  data:{ labels:tonnTermData.labels, datasets:[
+    { label:'Débarqué (t)', data:tonnTermData.debarque, backgroundColor:'rgba(41,128,185,.8)', borderRadius:4, stack:'t' },
+    { label:'Embarqué (t)', data:tonnTermData.embarque, backgroundColor:'rgba(20,143,119,.8)', borderRadius:4, stack:'t' }
+  ]},
+  options:{ responsive:true, interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom'}},
+    scales:{ x:{stacked:true,grid:{display:false}},
+      y:{stacked:true,beginAtZero:true,grid:{color:'#f0f4f8'},
+         ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M t':v>=1000?(v/1000).toFixed(0)+'k t':v}} } }
+});
+
+// ── Évolution occupation mensuelle ────────────────────────────────────────────
+const occMens = JSON.parse(document.getElementById("occMensData-data").textContent);
+new Chart(document.getElementById('chartOccMensuel'), {
+  type:'line',
+  data:{ labels:occMens.labels, datasets:[{
+    label:"Taux d'occupation (%)", data:occMens.values,
+    borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.1)',
+    fill:true, tension:.4, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#e67e22'
+  }]},
+  options:{ responsive:true, plugins:{legend:{display:false}},
+    scales:{y:{max:100,beginAtZero:true,grid:{color:'#f0f4f8'},ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}} }
+});
+
+// ── Heatmap Plotly ────────────────────────────────────────────────────────────
+const hm = JSON.parse(document.getElementById("hmData-data").textContent);
+if (hm.semaines && hm.semaines.length > 0) {
+  Plotly.newPlot('heatmapPostes', [{
+    z:hm.matrice, x:hm.postes, y:hm.semaines, type:'heatmap',
+    colorscale:[[0,'#d6eaf8'],[0.4,'#2980b9'],[0.7,'#e67e22'],[1,'#c0392b']],
+    showscale:true, colorbar:{title:'%',thickness:12,len:.8}
+  }], {
+    margin:{t:20,l:80,r:60,b:60},
+    paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    font:{family:'Inter,sans-serif',size:11},
+    xaxis:{tickangle:-30}, yaxis:{autorange:'reversed'}
+  }, {responsive:true, displayModeBar:false});
+} else {
+  document.getElementById('heatmapPostes').innerHTML =
+    '<div class="text-muted text-center py-5">Données insuffisantes pour la heatmap</div>';
+}
+
+}); // end load
+</script>
+{% endblock %}

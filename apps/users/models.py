@@ -19,6 +19,7 @@ class Role(models.Model):
         DIRECTION    = "direction",    "Direction"
         EXPLOITATION = "exploitation", "Exploitation"
         CAPITAINERIE = "capitainerie", "Capitainerie"
+        DAPC         = "dapc",         "DAPC"
 
     code        = models.CharField(max_length=20, choices=Code.choices, unique=True)
     libelle     = models.CharField(max_length=60)
@@ -72,6 +73,14 @@ class Role(models.Model):
                 "permissions_alertes": True, "permissions_reporting": False,
                 "permissions_admin": False,
             },
+            {
+                "code": cls.Code.DAPC,
+                "libelle": "DAPC",
+                "description": "Direction des Affaires Portuaires et de la Compétitivité : vue consolidée Direction + Exploitation.",
+                "permissions_kpi": True, "permissions_analytics": True,
+                "permissions_alertes": True, "permissions_reporting": True,
+                "permissions_admin": False,
+            },
         ]
         for d in defaults:
             cls.objects.update_or_create(code=d.pop("code"), defaults=d)
@@ -88,7 +97,7 @@ class ProfilUtilisateur(models.Model):
     telephone   = models.CharField(max_length=25, blank=True)
     poste       = models.CharField(max_length=100, blank=True)
     actif       = models.BooleanField(default=True)
-    date_creation = models.DateTimeField(auto_now_add=True)
+    date_creation = models.DateTimeField(default=timezone.now, editable=False)
     derniere_connexion_ip = models.GenericIPAddressField(null=True, blank=True)
 
     class Meta:

@@ -19,12 +19,19 @@ logger = logging.getLogger(__name__)
 # ── Décorateur admin ──────────────────────────────────────────────────────────
 
 def _admin_only(view_fn):
-    """Réserve la vue aux superusers ou rôle admin."""
+    """Réserve la vue aux superusers, staff, ou rôle admin via profil."""
     @wraps(view_fn)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("dashboard:login")
-        if not (request.user.is_superuser or request.user.is_staff):
+        # Vérifier is_staff, is_superuser ou rôle admin via profil
+        is_admin = request.user.is_superuser or request.user.is_staff
+        if not is_admin:
+            try:
+                is_admin = request.user.profil.role.code == "admin"
+            except Exception:
+                pass
+        if not is_admin:
             from django.contrib import messages as dj_messages
             dj_messages.error(request, "Accès réservé aux administrateurs.")
             return redirect("dashboard:direction")

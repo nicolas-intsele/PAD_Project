@@ -34,9 +34,15 @@
   <div class="pt-2">
     <div class="nav-section">Navigation</div>
 
+    {% if user_is_dapc %}
+    <a href="{% url 'dashboard:dapc' %}"
+       class="nav-link {% if request.resolver_match.url_name == 'dapc' %}active{% endif %}">
+      <i class="bi bi-building-fill-gear"></i> DAPC
+    </a>
+    {% else %}
     <a href="{% url 'dashboard:direction' %}"
        class="nav-link {% if request.resolver_match.url_name == 'direction' %}active{% endif %}">
-      <i class="bi bi-speedometer2"></i>  Direction
+      <i class="bi bi-speedometer2"></i> Direction
     </a>
     <a href="{% url 'dashboard:exploitation' %}"
        class="nav-link {% if request.resolver_match.url_name == 'exploitation' %}active{% endif %}">
@@ -46,6 +52,13 @@
        class="nav-link {% if request.resolver_match.url_name == 'capitainerie' %}active{% endif %}">
       <i class="bi bi-compass"></i> Capitainerie
     </a>
+    {% if user_is_admin %}
+    <a href="{% url 'dashboard:dapc' %}"
+       class="nav-link {% if request.resolver_match.url_name == 'dapc' %}active{% endif %}">
+      <i class="bi bi-building-fill-gear"></i> DAPC
+    </a>
+    {% endif %}
+    {% endif %}
 
     <div class="nav-section">Indicateurs</div>
     <a href="{% url 'dashboard:kpi' %}"
@@ -73,6 +86,7 @@
       <i class="bi bi-file-earmark-text"></i> Reporting
     </a>
 
+    {% if user_is_admin %}
     <div class="nav-section">Administration</div>
     <a href="{% url 'dashboard:admin_pad' %}"
        class="nav-link {% if 'admin' in request.resolver_match.url_name %}active{% endif %}">
@@ -81,6 +95,8 @@
     <a href="/admin/" class="nav-link" target="_blank">
       <i class="bi bi-gear-wide-connected"></i> Admin Django
     </a>
+    {% endif %}
+
     <a href="{% url 'dashboard:logout' %}" class="nav-link">
       <i class="bi bi-box-arrow-left"></i> Déconnexion
     </a>

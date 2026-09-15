@@ -29,7 +29,7 @@
 <!-- KPI escales -->
 <div class="section-title">Situation des escales</div>
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3 fade-in fade-in-1">
+  <div class="col-6 col-lg-2 fade-in fade-in-1">
     <div class="kpi-card kpi-trafic">
       <div class="kpi-icon"><i class="bi bi-check2-circle"></i></div>
       <div class="kpi-body">
@@ -38,16 +38,27 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-lg-3 fade-in fade-in-2">
-    <div class="kpi-card kpi-infra">
-      <div class="kpi-icon"><i class="bi bi-activity"></i></div>
+  <div class="col-6 col-lg-2 fade-in fade-in-2">
+    <div class="kpi-card kpi-trafic">
+      <div class="kpi-icon"><i class="bi bi-building-fill-check"></i></div>
       <div class="kpi-body">
-        <div class="kpi-label">En cours</div>
-        <div class="kpi-value">{{ stats.nb_en_cours|default:"—" }}</div>
+        <div class="kpi-label">À poste</div>
+        <div class="kpi-value">{{ stats.nb_a_poste|default:"—" }}</div>
+        <div class="kpi-sub" style="font-size:.72rem;color:var(--pad-text-muted);margin-top:2px;">Navires accostés</div>
       </div>
     </div>
   </div>
-  <div class="col-6 col-lg-3 fade-in fade-in-3">
+  <div class="col-6 col-lg-2 fade-in fade-in-3">
+    <div class="kpi-card kpi-infra">
+      <div class="kpi-icon"><i class="bi bi-water"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">En rade</div>
+        <div class="kpi-value">{{ stats.nb_en_rade|default:"—" }}</div>
+        <div class="kpi-sub" style="font-size:.72rem;color:var(--pad-text-muted);margin-top:2px;">En attente d'accostage</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2 fade-in fade-in-3">
     <div class="kpi-card kpi-temps">
       <div class="kpi-icon"><i class="bi bi-stopwatch"></i></div>
       <div class="kpi-body">
@@ -56,7 +67,7 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-lg-3 fade-in fade-in-4">
+  <div class="col-6 col-lg-2 fade-in fade-in-4">
     <div class="kpi-card kpi-temps">
       <div class="kpi-icon"><i class="bi bi-flag"></i></div>
       <div class="kpi-body">
@@ -214,7 +225,13 @@
 {{ distribution_sejour_json|json_script:"distribSejour-data" }}
 <script>
 window.addEventListener('load', function() {
-const COULEURS_STATUT = { 'terminee':'#148f77','en_cours':'#e67e22','planifiee':'#2980b9','annulee':'#c0392b' };
+const COULEURS_STATUT = {
+  'terminee': '#148f77',
+  'a_poste':  '#2980b9',
+  'en_rade':  '#e67e22',
+  'planifiee':'#95a5a6',
+  'annulee':  '#c0392b',
+};
 const COULEURS_ARR = ['#2980b9','#e67e22','#148f77','#8e44ad','#c0392b','#16a085'];
 
 // Statuts (doughnut)

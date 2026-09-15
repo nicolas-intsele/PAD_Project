@@ -12,6 +12,7 @@ urlpatterns = [
     path("direction/",    views.vue_direction,    name="direction"),
     path("exploitation/", views.vue_exploitation, name="exploitation"),
     path("capitainerie/", views.vue_capitainerie, name="capitainerie"),
+    path("dapc/",         views.vue_dapc,         name="dapc"),
     path("kpi/",          views.vue_kpi,          name="kpi"),
     path("analyse/",      views.vue_analyse,      name="analyse"),
 

@@ -332,7 +332,169 @@ def vue_exploitation(request):
     return render(request, "dashboard/exploitation.html", ctx)
 
 
-# ── Vue Capitainerie ──────────────────────────────────────────────────────────
+# ── Vue DAPC ──────────────────────────────────────────────────────────────────
+
+def _require_dapc(request):
+    """Retourne True si l'utilisateur a accès à la vue DAPC."""
+    if request.user.is_staff or request.user.is_superuser:
+        return True
+    try:
+        role = request.user.profil.role
+        return role and role.code in ("dapc", "admin")
+    except Exception:
+        return False
+
+
+@login_required(login_url="dashboard:login")
+def vue_dapc(request):
+    if not _require_dapc(request):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Accès réservé au service DAPC.")
+
+    d_debut, d_fin = _parse_dates(request, 180)
+    terminal_sel = request.GET.get("terminal", "")
+    terminaux = list(Terminal.objects.values_list("nom", flat=True).order_by("nom"))
+    annees = _annees_disponibles()
+    annee_n1 = int(request.GET.get("annee_n1", annees[0] if annees else date.today().year - 1))
+
+    # ── KPI direction ─────────────────────────────────────────────────────────
+    nb_esc    = _safe_float(nombre_escales(d_debut, d_fin))
+    t_attente = _safe_float(temps_attente_moyen(d_debut, d_fin))
+    t_sejour  = _safe_float(temps_sejour_moyen(d_debut, d_fin))
+    taux_occ  = _safe_float(taux_occupation_postes(d_debut, d_fin))
+    rot       = _safe_float(rotation_postes(d_debut, d_fin))
+
+    d_debut_n1 = d_debut.replace(year=d_debut.year - 1)
+    d_fin_n1   = d_fin.replace(year=d_fin.year - 1)
+    nb_esc_n1  = _safe_float(nombre_escales(d_debut_n1, d_fin_n1))
+    delta_esc  = nb_esc - nb_esc_n1
+
+    # ── Tonnage ───────────────────────────────────────────────────────────────
+    from django.db.models import Sum as _Sum
+    qs_t = Escale.objects.filter(
+        mois_source__isnull=False,
+        date_arrivee__date__range=(d_debut, d_fin),
+    )
+    agg = qs_t.aggregate(d=_Sum("tonnage_debarque"), e=_Sum("tonnage_embarque"))
+    tonnage_debarque = _safe_float(agg["d"] or 0)
+    tonnage_embarque = _safe_float(agg["e"] or 0)
+    tonnage_total    = tonnage_debarque + tonnage_embarque
+
+    # ── Graphiques direction ──────────────────────────────────────────────────
+    mesures_tendance = ["nb_escales", "temps_attente_moy", "taux_occupation"]
+    tendance_json = {}
+    for m in mesures_tendance:
+        tendance_json[m] = _tendance_json(m, d_debut, d_fin)
+
+    term_data = classement("nb_escales", "terminal", d_debut, d_fin, top=20)
+    terminaux_json = {
+        "labels": [r["label"] for r in term_data],
+        "values": [_safe_float(r["valeur"]) for r in term_data],
+        "total":  sum(_safe_float(r["valeur"]) for r in term_data),
+    }
+
+    comp = comparer_periodes("nb_escales", "terminal", d_debut_n1, d_fin_n1, d_debut, d_fin)
+    comparaison_json = {
+        "labels": [r["label"] for r in comp],
+        "ref":    [_safe_float(r["valeur_ref"])  for r in comp],
+        "comp":   [_safe_float(r["valeur_comp"]) for r in comp],
+    }
+
+    from apps.kpi.engine.view_helpers import _mois_dans_plage
+    tonn_labels, tonn_deb_vals, tonn_emb_vals = [], [], []
+    for annee, mois in _mois_dans_plage(d_debut, d_fin):
+        cle = f"{annee}-{mois:02d}"
+        agg2 = Escale.objects.filter(mois_source=cle).aggregate(
+            d=_Sum("tonnage_debarque"), e=_Sum("tonnage_embarque")
+        )
+        tonn_labels.append(cle)
+        tonn_deb_vals.append(_safe_float(agg2["d"] or 0))
+        tonn_emb_vals.append(_safe_float(agg2["e"] or 0))
+    tonnage_mensuel_json = {
+        "labels":   tonn_labels,
+        "debarque": tonn_deb_vals,
+        "embarque": tonn_emb_vals,
+    }
+
+    # ── Graphiques exploitation ───────────────────────────────────────────────
+    from django.db.models import Count as _Count, Avg as _Avg
+
+    occ_term  = classement("taux_occupation",   "terminal", d_debut, d_fin, top=20, ordre="desc")
+    att_term  = classement("temps_attente_moy", "terminal", d_debut, d_fin, top=20, ordre="desc")
+    class_ter = classement("nb_escales",        "terminal", d_debut, d_fin, top=10)
+    occ_mens  = _tendance_json("taux_occupation", d_debut, d_fin)
+
+    try:
+        hm = heatmap_occupation(d_debut, d_fin)
+    except Exception:
+        hm = {"semaines": [], "postes": [], "matrice": []}
+
+    postes_data = list(
+        Escale.objects.filter(date_arrivee__date__range=(d_debut, d_fin))
+        .values("poste__nom")
+        .annotate(n=_Count("id_escale"), sejour=_Avg("temps_sejour"))
+        .order_by("-n")[:20]
+    )
+    postes_escales_json = {
+        "labels": [p["poste__nom"] for p in postes_data],
+        "escales": [p["n"] for p in postes_data],
+        "sejour":  [round(float(p["sejour"] or 0), 1) for p in postes_data],
+    }
+
+    tonn_term = list(
+        Escale.objects.filter(date_arrivee__date__range=(d_debut, d_fin))
+        .values("poste__terminal__nom")
+        .annotate(deb=_Sum("tonnage_debarque"), emb=_Sum("tonnage_embarque"))
+        .order_by("-deb")
+    )
+    tonnage_terminal_json = {
+        "labels":   [t["poste__terminal__nom"] for t in tonn_term],
+        "debarque": [_safe_float(t["deb"] or 0) for t in tonn_term],
+        "embarque": [_safe_float(t["emb"] or 0) for t in tonn_term],
+    }
+
+    ctx = {
+        "date_debut":  d_debut.isoformat(),
+        "date_fin":    d_fin.isoformat(),
+        "annees_dispo": annees,
+        "annee_n1":    annee_n1,
+        "terminaux":   terminaux,
+        "terminal_sel": terminal_sel,
+        "kpi": {
+            "nb_escales":        int(nb_esc),
+            "nb_escales_trend":  "up" if delta_esc >= 0 else "down",
+            "nb_escales_delta":  f"{delta_esc:+.0f} vs N-1",
+            "temps_attente":     t_attente,
+            "temps_attente_trend": "down" if t_attente < _safe_float(temps_attente_moyen(d_debut_n1, d_fin_n1)) else "up",
+            "taux_occupation":   taux_occ,
+            "temps_sejour":      t_sejour,
+            "temps_pilotage":    _safe_float(temps_pilotage_moyen(d_debut, d_fin)),
+            "rotation_postes":   rot,
+            "debit_postes":      _safe_float(debit_postes(d_debut, d_fin)),
+            "productivite":      _safe_float(productivite(d_debut, d_fin)),
+            "tonnage_debarque":  tonnage_debarque,
+            "tonnage_embarque":  tonnage_embarque,
+            "tonnage_total":     tonnage_total,
+        },
+        "classement_terminaux":    class_ter,
+        "tendance_json":           tendance_json,
+        "terminaux_json":          terminaux_json,
+        "comparaison_json":        comparaison_json,
+        "tonnage_mensuel_json":    tonnage_mensuel_json,
+        "occupation_terminaux_json": {
+            "labels": [r["label"] for r in occ_term],
+            "values": [_safe_float(r["valeur"]) for r in occ_term],
+        },
+        "attente_terminaux_json": {
+            "labels": [r["label"] for r in att_term],
+            "values": [_safe_float(r["valeur"]) for r in att_term],
+        },
+        "heatmap_json":           hm,
+        "occ_mensuel_json":       occ_mens,
+        "postes_escales_json":    postes_escales_json,
+        "tonnage_terminal_json":  tonnage_terminal_json,
+    }
+    return render(request, "dashboard/dapc.html", ctx)
 
 @login_required(login_url="dashboard:login")
 def vue_capitainerie(request):
@@ -348,7 +510,15 @@ def vue_capitainerie(request):
     # Statuts
     statuts = repartition_statut(d_debut, d_fin)
     nb_terminees = next((s["nb_escales"] for s in statuts if s["statut"] == "terminee"), 0)
-    nb_en_cours  = next((s["nb_escales"] for s in statuts if s["statut"] == "en_cours"), 0)
+
+    # Scinder les escales "en cours" : navires à poste vs navires en rade
+    en_cours_qs = Escale.objects.filter(
+        date_arrivee__date__range=(d_debut, d_fin),
+        statut=Escale.Statut.EN_COURS,
+    )
+    nb_a_poste = en_cours_qs.filter(date_depart__isnull=False).count()
+    nb_en_rade = en_cours_qs.filter(date_depart__isnull=True).count()
+    nb_en_cours = nb_a_poste + nb_en_rade
 
     # KPI
     pilotage  = _safe_float(temps_pilotage_moyen(d_debut, d_fin))
@@ -447,7 +617,12 @@ def vue_capitainerie(request):
         "date_fin":   d_fin.isoformat(),
         "types_navires": types_navires,
         "type_sel": type_sel,
-        "stats": {"nb_terminees": nb_terminees, "nb_en_cours": nb_en_cours},
+        "stats": {
+            "nb_terminees": nb_terminees,
+            "nb_en_cours":  nb_en_cours,
+            "nb_a_poste":   nb_a_poste,
+            "nb_en_rade":   nb_en_rade,
+        },
         "kpi": {"temps_pilotage": pilotage, "temps_accostage": accostage},
         "classement_compagnies": class_comp,
         "escales_recentes": escales_recentes,
@@ -456,9 +631,9 @@ def vue_capitainerie(request):
         "evolution_temps_json":     evolution_temps_json,
         "distribution_sejour_json": distribution_sejour_json,
         "statuts_json": {
-            "labels": [s["label"] for s in statuts],
-            "values": [s["nb_escales"] for s in statuts],
-            "codes":  [s["statut"] for s in statuts],
+            "labels": ["Terminée", "À poste", "En rade"],
+            "values": [nb_terminees, nb_a_poste, nb_en_rade],
+            "codes":  ["terminee", "a_poste", "en_rade"],
         },
         "types_navires_json": {
             "labels":   types_labels,
